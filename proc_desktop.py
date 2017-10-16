@@ -37,8 +37,4 @@ def main():
     width = msg['width']
     height = msg['height']
     wnd = DesktopWindow()
-    put_message(QID_GUI, {
-        'type': 'CREATE_WINDOW',
-        'wnd': wnd
-    })
     wnd.exec_()

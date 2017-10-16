@@ -31,9 +31,14 @@ class Window(object):
         self.surface = Surface(self.frame_width(), self.frame_height())
         self.z_order = 0
 
+        self.active_ = False
+
     def rect(self):
         return QRect(self.margin_left(), self.margin_top(),
                      self.width(), self.height())
+
+    def frame_rect(self):
+        return QRect(self.x, self.y, self.frame_width(), self.frame_height())
 
     def border_width(self):
         return self.border_width_
@@ -71,6 +76,9 @@ class Window(object):
     def height(self):
         return self.height_
 
+    def active(self):
+        return self.active_
+
     def update(self):
         put_message(QID_GUI, {
             'type': 'UPDATE',
@@ -96,7 +104,7 @@ class Window(object):
         border = self.border_width()
         width = self.frame_width()
         height = self.frame_height()
-        color = SteelBlue
+        color = SteelBlue if self.active() else LightSteelBlue
         client_color = White
         if self.attr & WND_FRAME:
             surface.fill_rect(0, 0, width, border, color)  # top
@@ -117,6 +125,10 @@ class Window(object):
                 self.width(), self.height(), White)
 
     def exec_(self):
+        put_message(QID_GUI, {
+            'type': 'CREATE_WINDOW',
+            'wnd': self
+        })
         while True:
             msg = get_message(self)
             type_ = msg['type']
@@ -129,3 +141,8 @@ class Window(object):
                 })
             elif type_ == 'TimerEvent':
                 self.timer_event(msg)
+
+    def __lt__(self, o):
+        if self.z_order != o.z_order:
+            return self.z_order < o.z_order
+        return o.active()

@@ -11,6 +11,7 @@ from painter import Painter
 import proc_gui
 import proc_desktop
 import proc_pa
+import proc_pb
 
 
 class Timer(object):
@@ -35,19 +36,21 @@ class Widget(QDialog):
 
     def __init__(self, parent=None):
         super(Widget, self).__init__(parent)
-        self.screen = QImage(SCREEN_WIDTH, SCREEN_HEIGHT, QImage.Format_ARGB32)
-
-        self.timer = QTimer()
-        self.timer.setInterval(MS_PRECISION)
-        self.timer.timeout.connect(self.tick)
-        self.timer.start()
+        self.setMouseTracking(True)
 
         self.timers = []
+        self.screen = QImage(SCREEN_WIDTH, SCREEN_HEIGHT, QImage.Format_ARGB32)
+
+        self.ticker = QTimer()
+        self.ticker.setInterval(MS_PRECISION)
+        self.ticker.timeout.connect(self.tick)
+        self.ticker.start()
 
         self.threads = threads = []
         threads.append(Thread(target=proc_gui.main, args=(self.screen,)))
         threads.append(Thread(target=proc_desktop.main))
         threads.append(Thread(target=proc_pa.main))
+        threads.append(Thread(target=proc_pb.main))
         for thread in threads:
             thread.daemon = True
             thread.start()
@@ -55,6 +58,27 @@ class Widget(QDialog):
     def paintEvent(self, ev):
         painter = QPainter(self)
         painter.drawImage(0, 0, self.screen)
+
+    def mouseMoveEvent(self, ev):
+        put_message(QID_GUI, {
+            'type': 'MOUSE_MOVE',
+            'x': ev.x(),
+            'y': ev.y(),
+        })
+
+    def mousePressEvent(self, ev):
+        put_message(QID_GUI, {
+            'type': 'MOUSE_PRESS',
+            'x': ev.x(),
+            'y': ev.y(),
+        })
+
+    def mouseReleaseEvent(self, ev):
+        put_message(QID_GUI, {
+            'type': 'MOUSE_RELEASE',
+            'x': ev.x(),
+            'y': ev.y(),
+        })
 
     def blit(self, screen):
         painter = QPainter(self.screen)

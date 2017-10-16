@@ -20,7 +20,13 @@ class GUI(object):
         while True:
             msg = get_message(QID_GUI)
             msg_type = msg['type']
-            if msg_type == 'CREATE_WINDOW':
+            if msg_type == 'MOUSE_MOVE':
+                self.on_mouse_move(msg)
+            elif msg_type == 'MOUSE_PRESS':
+                self.on_mouse_press(msg)
+            elif msg_type == 'MOUSE_RELEASE':
+                self.on_mouse_release(msg)
+            elif msg_type == 'CREATE_WINDOW':
                 self.on_create_window(msg['wnd'])
             elif msg_type == 'GET_SCREEN_INFO':
                 self.on_get_screen_info(msg['pid'])
@@ -34,11 +40,12 @@ class GUI(object):
                 print 'Unknown', msg
 
     def on_create_window(self, wnd):
-        self.wnds.append(wnd)
-        self.wnds.sort(key=lambda w: w.z_order)
-        put_message(wnd, {
-            'type': 'PaintEvent',
-        })
+        wnds = self.wnds
+        wnds.append(wnd)
+        wnds.sort()
+        for w in wnds[:-1]:
+            self.activate_window(w, False)
+        self.activate_window(wnds[-1], True)
 
     def on_get_screen_info(self, pid):
         put_message(pid, {
@@ -56,8 +63,32 @@ class GUI(object):
         painter = QPainter(self.device)
         painter.drawImage(0, 0, self.screen)
 
+    def on_mouse_move(self, ev):
+        pass
+
+    def on_mouse_press(self, ev):
+        x, y = ev['x'], ev['y']
+        wnds = self.wnds
+        for wnd in reversed(wnds[1:]):
+            if wnd.frame_rect().contains(x, y) and not wnd.active():
+                self.activate_window(wnds[-1], False)
+                self.activate_window(wnd, True)
+                self.wnds.sort()
+                self.on_painted(wnds[-1])
+                break
+
+    def on_mouse_release(self, ev):
+        #print 'release', ev['x'], ev['y']
+        pass
+
     def draw_window(self, painter, wnd):
         painter.drawImage(wnd.frame_left(), wnd.frame_top(), wnd.surface.im)
+
+    def activate_window(self, wnd, active=True):
+        wnd.active_ = active
+        put_message(wnd, {
+            'type': 'PaintEvent',
+        })
 
 
 def main(screen):
