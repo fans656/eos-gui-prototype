@@ -18,3 +18,7 @@ class Surface(object):
     def draw_bitmap(self, bitmap, x, y):
         painter = QPainter(self.im)
         painter.drawImage(x, y, bitmap)
+
+    def blit(self, im, src_rc, dst_rc):
+        painter = QPainter(self.im)
+        painter.drawImage(dst_rc, im, src_rc)

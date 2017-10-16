@@ -1,5 +1,8 @@
 import time
 
+from PySide.QtCore import *
+from PySide.QtGui import *
+
 from common import *
 from message import get_message, put_message
 from surface import Surface
@@ -27,6 +30,10 @@ class Window(object):
         self.attr = attr
         self.surface = Surface(self.frame_width(), self.frame_height())
         self.z_order = 0
+
+    def rect(self):
+        return QRect(self.margin_left(), self.margin_top(),
+                     self.width(), self.height())
 
     def border_width(self):
         return self.border_width_
@@ -103,6 +110,7 @@ class Window(object):
                 border, border,
                 width - 2 * border, self.caption_height(), color)
         if not (self.attr & WND_TRANSPARENT):
+            print 'fill client', self, '{:02x}'.format(self.attr)
             surface.fill_rect(
                 self.margin_left(), self.margin_top(),
                 self.width(), self.height(), White)
