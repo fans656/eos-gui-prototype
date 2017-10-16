@@ -9,14 +9,6 @@ from painter import Painter
 from message import get_message, put_message
 
 
-def report(f):
-    @functools.wraps(f)
-    def wrapper(*args, **kwargs):
-        print f.__name__
-        return f(*args, **kwargs)
-    return wrapper
-
-
 class GUI(object):
 
     def __init__(self, device):
@@ -34,10 +26,13 @@ class GUI(object):
                 self.on_get_screen_info(msg['pid'])
             elif msg_type == 'PAINTED':
                 self.on_painted(msg['wnd'])
+            elif msg_type == 'UPDATE':
+                put_message(msg['wnd'], {
+                    'type': 'PaintEvent'
+                })
             else:
                 print 'Unknown', msg
 
-    @report
     def on_create_window(self, wnd):
         self.wnds.append(wnd)
         self.wnds.sort(key=lambda w: w.z_order)
@@ -45,7 +40,6 @@ class GUI(object):
             'type': 'PaintEvent',
         })
 
-    @report
     def on_get_screen_info(self, pid):
         put_message(pid, {
             'type': 'SCREEN_INFO',
@@ -53,7 +47,6 @@ class GUI(object):
             'height': SCREEN_HEIGHT
         })
 
-    @report
     def on_painted(self, wnd):
         painter = QPainter(self.screen)
         wnds = self.wnds

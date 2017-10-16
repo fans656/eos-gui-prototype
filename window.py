@@ -71,17 +71,19 @@ class Window(object):
     def height(self):
         return self.height_
 
-    def exec_(self):
-        while True:
-            msg = get_message(self)
-            type_ = msg['type']
-            if type_ == 'PaintEvent':
-                self.system_paint()
-                self.paint_event(msg)
-                put_message(QID_GUI, {
-                    'type': 'PAINTED',
-                    'wnd': self
-                })
+    def update(self):
+        put_message(QID_GUI, {
+            'type': 'UPDATE',
+            'wnd': self
+        })
+
+    def set_timer(self, ms, singleshot=False):
+        put_message(QID_KERNEL, {
+            'type': 'SET_TIMER',
+            'ms': ms,
+            'qid': self,
+            'singleshot': singleshot
+        })
 
     def paint_event(self, ev):
         print 'paint_event'
@@ -110,7 +112,20 @@ class Window(object):
                 border, border,
                 width - 2 * border, self.caption_height(), color)
         if not (self.attr & WND_TRANSPARENT):
-            print 'fill client', self, '{:02x}'.format(self.attr)
             surface.fill_rect(
                 self.margin_left(), self.margin_top(),
                 self.width(), self.height(), White)
+
+    def exec_(self):
+        while True:
+            msg = get_message(self)
+            type_ = msg['type']
+            if type_ == 'PaintEvent':
+                self.system_paint()
+                self.paint_event(msg)
+                put_message(QID_GUI, {
+                    'type': 'PAINTED',
+                    'wnd': self
+                })
+            elif type_ == 'TimerEvent':
+                self.timer_event(msg)

@@ -13,10 +13,16 @@ class DesktopWindow(Window):
         super(DesktopWindow, self).__init__(
             0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, WND_USER_DRAWN)
         self.im = QImage('cheetah.png')
+        self.im2 = QImage('cheetah-sun.jpg')
+        self.timer = self.set_timer(1000)
 
     def paint_event(self, ev):
         painter = Painter(self)
         painter.draw_bitmap(self.im, 0, 0)
+
+    def timer_event(self, ev):
+        self.im, self.im2 = self.im2, self.im
+        self.update()
 
 
 def main():
