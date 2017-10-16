@@ -4,18 +4,24 @@ from PySide.QtCore import *
 from PySide.QtGui import *
 
 from common import *
-from message import get_message, put_message
+from message import *
 from surface import Surface
 from painter import Painter
 from color import *
 
 
-WND_FRAME = 0x01
-WND_CAPTION = 0x02
-WND_TRANSPARENT = 0x04
-WND_USER_DRAWN = 0x08
+WND_FRAME = 1 << 0
+WND_CAPTION = 1 << 1
+WND_TRANSPARENT = 1 << 2
+WND_KEEP_BOTTOM = 1 << 3
+WND_KEEP_TOP = 1 << 4
 
 WND_DEFAULT = WND_FRAME | WND_CAPTION
+WND_ONLY_CLIENT = 0
+WND_USER_DRAWN = WND_TRANSPARENT
+
+DEFAULT_BORDER_WIDTH = 2
+DEFAULT_CAPTION_HEIGHT = 20
 
 
 class Window(object):
@@ -23,24 +29,12 @@ class Window(object):
     def __init__(self, x, y, width, height, attr=WND_DEFAULT):
         self.x = x
         self.y = y
-        self.border_width_ = 2 if attr & WND_FRAME else 0
-        self.caption_height_ = 20 if attr & WND_CAPTION else 0
         self.width_ = width
         self.height_ = height
         self.attr = attr
-        self.surface = Surface(self.frame_width(), self.frame_height())
-        self.z_order = 0
-
-        self.active_ = False
-        self.dragging = False
-        self.dragging_init_mouse_x = None
-        self.dragging_init_mouse_y = None
-        self.dragging_init_x = None
-        self.dragging_init_y = None
 
     def rect(self):
-        return QRect(self.margin_left(), self.margin_top(),
-                     self.width(), self.height())
+        return QRect(self.x, self.y, self.width(), self.height())
 
     def frame_rect(self):
         return QRect(self.x, self.y, self.frame_width(), self.frame_height())
@@ -103,16 +97,31 @@ class Window(object):
             'singleshot': singleshot
         })
 
-    def paint_event(self, ev):
-        print 'paint_event'
-        painter = Painter(self)
+    def exec_(self):
+        gui_request('CREATE_WINDOW', wnd=self)
+        while True:
+            msg = get_message(self)
+            type_ = msg['type']
+            if type_ == 'on_create':
+                self.on_create(msg)
+            elif type_ == 'on_paint':
+                if not (self.attr & WND_USER_DRAWN):
+                    self.on_system_paint(msg)
+                self.paint_event(msg)
+                put_message(QUEUE_ID_GUI, {
+                    'type': 'PAINTED',
+                    'wnd': self
+                })
+            elif type_ == 'on_move':
+                self.on_move(msg)
 
-    def move_event(self, ev):
-        self.x, self.y = x, y = ev['x'], ev['y']
+    def on_create(self, ev):
+        pass
 
-    def system_paint(self):
-        if self.attr & WND_USER_DRAWN:
-            return
+    def on_paint(self, ev):
+        pass
+
+    def on_system_paint(self, ev):
         surface = self.surface
         border = self.border_width()
         width = self.frame_width()
@@ -137,40 +146,25 @@ class Window(object):
                 self.margin_left(), self.margin_top(),
                 self.width(), self.height(), White)
 
-    def exec_(self):
-        put_message(QID_GUI, {
-            'type': 'CREATE_WINDOW',
-            'wnd': self
-        })
-        while True:
-            msg = get_message(self)
-            type_ = msg['type']
-            if type_ == 'PaintEvent':
-                self.system_paint()
-                self.paint_event(msg)
-                put_message(QID_GUI, {
-                    'type': 'PAINTED',
-                    'wnd': self
-                })
-            elif type_ == 'TimerEvent':
-                self.timer_event(msg)
-            elif type_ == 'MoveEvent':
-                self.move_event(msg)
+    def on_move(self, ev):
+        pass
+
+
+class ServerWindow(object):
+
+    def __init__(self, wnd):
+        self.wnd = wnd
+        self.x = wnd.x
+        self.y = wnd.y
+        self.width = wnd.width
+        self.height = wnd.height
+
+        wnd.border_width_ = DEFAULT_BORDER_WIDTH if wnd.attr & WND_FRAME else 0
+        wnd.caption_height_ = DEFAULT_CAPTION_HEIGHT if wnd.attr & WND_CAPTION else 0
+        wnd.surface = Surface(wnd.frame_width(), wnd.frame_height())
+        wnd.active_ = True
 
     def __lt__(self, o):
         if self.z_order != o.z_order:
             return self.z_order < o.z_order
         return o.active()
-
-    def hit_test_caption(self, x, y):
-        return self.caption_rect().contains(x, y)
-
-    def start_drag(self, x, y):
-        self.dragging = True
-        self.dragging_init_mouse_x = x
-        self.dragging_init_mouse_y = y
-        self.dragging_init_x = self.x
-        self.dragging_init_y = self.y
-
-    def stop_drag(self):
-        self.dragging = False

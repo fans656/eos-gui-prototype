@@ -19,6 +19,7 @@ class Wnd(Window):
         painter.draw_bitmap(self.im, 0, 0)
 
 
-def main():
+def main(video_mem, qt_callback):
+    return
     wnd = Wnd()
     wnd.exec_()

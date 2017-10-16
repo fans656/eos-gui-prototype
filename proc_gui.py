@@ -4,24 +4,60 @@ from PySide.QtCore import *
 from PySide.QtGui import *
 
 from common import *
-from window import Window
+from window import *
 from painter import Painter
 from message import get_message, put_message
+from qcommunicate import QCommunicate
+
+
+def subtract_rect(rc1, rc2):
+    res = []
+    if rc2.left() > rc1.left():
+        res.append(QRect(rc1.left(), rc1.top(),
+                         rc2.left() - rc1.left(), rc1.height()))
+        rc1.setLeft(rc2.left())
+    if rc2.right() < rc1.right():
+        res.append(QRect(rc2.right() + 1, rc1.top(),
+                         rc1.right() - rc2.right(), rc1.height()))
+        rc1.setRight(rc2.right())
+    if rc2.top() > rc1.top():
+        res.append(QRect(rc1.left(), rc1.top(),
+                         rc1.width(), rc2.top() - rc1.top()))
+    if rc2.bottom() < rc1.bottom():
+        res.append(QRect(rc1.left(), rc2.bottom() + 1,
+                         rc1.width(), rc1.bottom() - rc2.bottom()))
+    return res
+
+
+#assert subtract_rect(
+#    QRect(0, 0, 100, 50), QRect(0, 0, 100, 50)) == []
+#assert subtract_rect(
+#    QRect(0, 0, 100, 50), QRect(0, 0, 50, 50)) == [QRect(50, 0, 50, 50)]
+#assert subtract_rect(
+#    QRect(0, 0, 100, 50), QRect(50, 0, 50, 50)) == [QRect(0, 0, 50, 50)]
+#assert subtract_rect(
+#    QRect(0, 0, 100, 50), QRect(0, 25, 100, 25)) == [QRect()]
+#print subtract_rect(QRect(0, 0, 100, 50), QRect(0, 0, 100, 25))
+#print subtract_rect(QRect(0, 0, 100, 50), QRect(25, 0, 50, 50))
+#exit()
 
 
 class GUI(object):
 
-    def __init__(self, device):
-        self.wnds = []
+    def __init__(self, video_mem, qt_callback):
         self.screen = QImage(SCREEN_WIDTH, SCREEN_HEIGHT, QImage.Format_ARGB32)
-        self.device = device
-        self.mouse_down = False
-        self.mouse_x = None
-        self.mouse_y = None
+        self.qcommunicate = QCommunicate()
+        self.qcommunicate.signal.connect(qt_callback)
+        self.video_mem = video_mem
+        self.wnds = []
+        #self.mouse_down = False
+        #self.mouse_x = None
+        #self.mouse_y = None
 
     def exec_(self):
         while True:
-            msg = get_message(QID_GUI)
+            msg = get_message(QUEUE_ID_GUI)
+            self.debug('RECV', msg)
             msg_type = msg['type']
             if msg_type == 'MOUSE_MOVE':
                 self.on_mouse_move(msg)
@@ -36,19 +72,16 @@ class GUI(object):
             elif msg_type == 'PAINTED':
                 self.on_painted(msg['wnd'])
             elif msg_type == 'UPDATE':
-                put_message(msg['wnd'], {
-                    'type': 'PaintEvent'
-                })
+                self.paint_window(msg['wnd'])
             else:
                 print 'Unknown', msg
 
     def on_create_window(self, wnd):
         wnds = self.wnds
-        wnds.append(wnd)
-        wnds.sort()
-        for w in wnds[:-1]:
-            self.activate_window(w, False)
-        self.activate_window(wnds[-1], True)
+        swnd = ServerWindow(wnd)
+        wnds.append(swnd)
+        self.put_message(wnd, 'on_create', swnd=swnd)
+        self.put_message(wnd, 'on_paint', swnd=swnd)
 
     def on_get_screen_info(self, pid):
         put_message(pid, {
@@ -58,13 +91,7 @@ class GUI(object):
         })
 
     def on_painted(self, wnd):
-        painter = QPainter(self.screen)
-        wnds = self.wnds
-        for i in xrange(wnds.index(wnd), len(wnds)):
-            self.draw_window(painter, wnds[i])
-
-        painter = QPainter(self.device)
-        painter.drawImage(0, 0, self.screen)
+        self.invalidate(wnd.rect())
 
     def on_mouse_move(self, ev):
         x, y = ev['x'], ev['y']
@@ -76,6 +103,9 @@ class GUI(object):
         x, y = ev['x'], ev['y']
         self.mouse_down = True
         self.activate(x, y)
+        wnd = self.wnds[-1]
+        if wnd.active() and wnd.hit_test_caption(x, y):
+            wnd.start_drag(x, y)
 
     def on_mouse_release(self, ev):
         x, y = ev['x'], ev['y']
@@ -94,32 +124,26 @@ class GUI(object):
     def activate(self, x, y):
         wnds = self.wnds
         for wnd in reversed(wnds[1:]):
-            if wnd.frame_rect().contains(x, y) and not wnd.active():
-                self.activate_window(wnds[-1], False)
-                self.activate_window(wnd, True)
-                self.wnds.sort()
-                self.paint_window(wnds[-1])
+            if wnd.frame_rect().contains(x, y):
+                if not wnd.active():
+                    self.activate_window(wnds[-1], False)
+                    self.activate_window(wnd, True)
+                    self.wnds.sort()
+                    self.paint_window(wnds[-1])
                 break
 
     def drag(self, x, y):
         wnd = self.wnds[-1]
         if wnd.dragging:
-            pass
-        elif wnd.active() and wnd.hit_test_caption(x, y):
-            wnd.start_drag(x, y)
-        if wnd.dragging:
-            rc = wnd.frame_rect()
+            invalid_rc = wnd.frame_rect()
             dx = x - wnd.dragging_init_mouse_x
             dy = y - wnd.dragging_init_mouse_y
-            #print 'prev {} {} new {} {}'.format(rc.left(), rc.top(),
-            #                              wnd.dragging_init_x + dx,
-            #                              wnd.dragging_init_y + dy)
-            put_message(wnd, {
-                'type': 'MoveEvent',
-                'x': wnd.dragging_init_x + dx,
-                'y': wnd.dragging_init_y + dy,
-            })
-            self.on_painted(self.wnds[0])
+            if dx == 0 and dy == 0:
+                return
+            wnd.x = wnd.dragging_init_x + dx
+            wnd.y = wnd.dragging_init_y + dy
+            self.move_window(wnd, wnd.x, wnd.y)
+            self.invalidate(invalid_rc | wnd.frame_rect())
 
     def activate_window(self, wnd, active=True):
         wnd.active_ = active
@@ -128,26 +152,54 @@ class GUI(object):
     def paint_window(self, wnd):
         put_message(wnd, {
             'type': 'PaintEvent',
-        });
+        }, True)
 
-    def invalidate(self, rcs):
+    def move_window(self, wnd, x, y):
+        put_message(wnd, {
+            'type': 'MoveEvent',
+            'x': x,
+            'y': y,
+        }, True)
+
+    def invalidate(self, rc):
         painter = QPainter(self.screen)
-        for invalid_rc in rcs:
-            size = invalid_rc.width() * invalid_rc.height()
+        invalid_rcs = [rc]
+        while invalid_rcs:
+            invalid_rc = invalid_rcs.pop()
             draw_wnds = []
-            for wnd in reversed(self.wnds[:-1]):
+            for swnd in reversed(self.wnds):
+                wnd = swnd.wnd
                 wnd_rc = wnd.frame_rect()
                 draw_rc = invalid_rc.intersected(wnd_rc)
                 if draw_rc.isEmpty():
                     continue
-                size -= draw_rc.width() * draw_rc.height()
                 draw_wnds.append((wnd, draw_rc))
-                if size <= 0:
-                    break
+                remained_rcs = subtract_rect(invalid_rc, draw_rc)
+                invalid_rcs.extend(remained_rcs)
             for wnd, rc in reversed(draw_wnds):
                 self.blit_window(painter, wnd, rc)
+        self.update_screen(rc)
+
+    def update_screen(self, rc=None):
+        painter = QPainter(self.video_mem)
+        if rc is None:
+            rc = self.screen.rect()
+        painter.drawImage(0, 0, self.screen)
+        self.debug('update screen', {'update screen': rc})
+
+    def put_message(self, receiver, type_, **data):
+        msg = {
+            'type': type_,
+            '__receiver': receiver,
+        }
+        msg.update(data)
+        self.debug('SEND', msg)
+        put_message(receiver, msg)
+
+    def debug(self, tag, msg):
+        self.qcommunicate.signal.emit(tag, msg)
 
 
-def main(screen):
-    gui = GUI(screen)
+def main(video_mem, qt_callback):
+    gui = GUI(video_mem, qt_callback)
     gui.exec_()

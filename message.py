@@ -1,8 +1,15 @@
 import time
 from collections import deque
 
+from common import *
 
-def put_message(qid, msg):
+
+def gui_request(type_, **data):
+    data.update({'type': type_})
+    put_message(QUEUE_ID_GUI, data)
+
+
+def put_message(qid, msg, replace=False):
     if qid not in queues:
         queues[qid] = deque()
     queues[qid].append(msg)
