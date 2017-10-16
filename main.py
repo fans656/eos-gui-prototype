@@ -1,4 +1,5 @@
 import time
+import random
 from threading import Thread
 
 from PySide.QtCore import *
@@ -42,9 +43,8 @@ class Widget(QDialog):
         self.screen = QImage(SCREEN_WIDTH, SCREEN_HEIGHT, QImage.Format_ARGB32)
 
         self.ticker = QTimer()
-        self.ticker.setInterval(MS_PRECISION)
         self.ticker.timeout.connect(self.tick)
-        self.ticker.start()
+        self.ticker.start(MS_PRECISION)
 
         self.threads = threads = []
         threads.append(Thread(target=proc_gui.main, args=(self.screen,)))
@@ -55,6 +55,39 @@ class Widget(QDialog):
             thread.daemon = True
             thread.start()
 
+        self.ttimer = QTimer()
+        self.ttimer.setSingleShot(True)
+        self.ttimer.timeout.connect(self.tfunc)
+        #self.ttimer.start(1000)
+
+    def tfunc(self):
+        x = 300 + 20
+        y = 100 + 5
+        put_message(QID_GUI, {
+            'type': 'MOUSE_PRESS',
+            'x': x,
+            'y': y,
+            'buttons': Qt.LeftButton,
+        })
+        for _ in xrange(100):
+            dx = 5
+            dy = 0
+            time.sleep(0.001)
+            x += dx
+            y += dy
+            put_message(QID_GUI, {
+                'type': 'MOUSE_MOVE',
+                'x': x,
+                'y': y,
+                'buttons': Qt.LeftButton,
+            })
+        put_message(QID_GUI, {
+            'type': 'MOUSE_RELEASE',
+            'x': x,
+            'y': y,
+            'buttons': Qt.LeftButton,
+        })
+
     def paintEvent(self, ev):
         painter = QPainter(self)
         painter.drawImage(0, 0, self.screen)
@@ -64,6 +97,7 @@ class Widget(QDialog):
             'type': 'MOUSE_MOVE',
             'x': ev.x(),
             'y': ev.y(),
+            'buttons': ev.buttons(),
         })
 
     def mousePressEvent(self, ev):
@@ -71,6 +105,7 @@ class Widget(QDialog):
             'type': 'MOUSE_PRESS',
             'x': ev.x(),
             'y': ev.y(),
+            'buttons': ev.buttons(),
         })
 
     def mouseReleaseEvent(self, ev):
@@ -78,6 +113,7 @@ class Widget(QDialog):
             'type': 'MOUSE_RELEASE',
             'x': ev.x(),
             'y': ev.y(),
+            'buttons': ev.buttons(),
         })
 
     def blit(self, screen):

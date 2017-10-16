@@ -14,7 +14,7 @@ class DesktopWindow(Window):
             0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, WND_USER_DRAWN)
         self.im = QImage('cheetah.png')
         self.im2 = QImage('cheetah-sun.jpg')
-        self.timer = self.set_timer(1000)
+        #self.timer = self.set_timer(5000)
 
     def paint_event(self, ev):
         painter = Painter(self)

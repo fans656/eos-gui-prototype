@@ -15,6 +15,9 @@ class GUI(object):
         self.wnds = []
         self.screen = QImage(SCREEN_WIDTH, SCREEN_HEIGHT, QImage.Format_ARGB32)
         self.device = device
+        self.mouse_down = False
+        self.mouse_x = None
+        self.mouse_y = None
 
     def exec_(self):
         while True:
@@ -64,31 +67,85 @@ class GUI(object):
         painter.drawImage(0, 0, self.screen)
 
     def on_mouse_move(self, ev):
-        pass
+        x, y = ev['x'], ev['y']
+        buttons = ev['buttons']
+        if self.mouse_down:
+            self.drag(x, y)
 
     def on_mouse_press(self, ev):
         x, y = ev['x'], ev['y']
+        self.mouse_down = True
+        self.activate(x, y)
+
+    def on_mouse_release(self, ev):
+        x, y = ev['x'], ev['y']
+        wnd = self.wnds[-1]
+        if wnd.dragging:
+            wnd.stop_drag()
+        self.mouse_down = False
+
+    def draw_window(self, painter, wnd):
+        painter.drawImage(wnd.frame_left(), wnd.frame_top(), wnd.surface.im)
+
+    def blit_window(self, painter, wnd, rc):
+        painter.drawImage(rc, wnd.surface.im,
+                          rc.translated(-wnd.frame_left(), -wnd.frame_top()))
+
+    def activate(self, x, y):
         wnds = self.wnds
         for wnd in reversed(wnds[1:]):
             if wnd.frame_rect().contains(x, y) and not wnd.active():
                 self.activate_window(wnds[-1], False)
                 self.activate_window(wnd, True)
                 self.wnds.sort()
-                self.on_painted(wnds[-1])
+                self.paint_window(wnds[-1])
                 break
 
-    def on_mouse_release(self, ev):
-        #print 'release', ev['x'], ev['y']
-        pass
-
-    def draw_window(self, painter, wnd):
-        painter.drawImage(wnd.frame_left(), wnd.frame_top(), wnd.surface.im)
+    def drag(self, x, y):
+        wnd = self.wnds[-1]
+        if wnd.dragging:
+            pass
+        elif wnd.active() and wnd.hit_test_caption(x, y):
+            wnd.start_drag(x, y)
+        if wnd.dragging:
+            rc = wnd.frame_rect()
+            dx = x - wnd.dragging_init_mouse_x
+            dy = y - wnd.dragging_init_mouse_y
+            #print 'prev {} {} new {} {}'.format(rc.left(), rc.top(),
+            #                              wnd.dragging_init_x + dx,
+            #                              wnd.dragging_init_y + dy)
+            put_message(wnd, {
+                'type': 'MoveEvent',
+                'x': wnd.dragging_init_x + dx,
+                'y': wnd.dragging_init_y + dy,
+            })
+            self.on_painted(self.wnds[0])
 
     def activate_window(self, wnd, active=True):
         wnd.active_ = active
+        self.paint_window(wnd)
+
+    def paint_window(self, wnd):
         put_message(wnd, {
             'type': 'PaintEvent',
-        })
+        });
+
+    def invalidate(self, rcs):
+        painter = QPainter(self.screen)
+        for invalid_rc in rcs:
+            size = invalid_rc.width() * invalid_rc.height()
+            draw_wnds = []
+            for wnd in reversed(self.wnds[:-1]):
+                wnd_rc = wnd.frame_rect()
+                draw_rc = invalid_rc.intersected(wnd_rc)
+                if draw_rc.isEmpty():
+                    continue
+                size -= draw_rc.width() * draw_rc.height()
+                draw_wnds.append((wnd, draw_rc))
+                if size <= 0:
+                    break
+            for wnd, rc in reversed(draw_wnds):
+                self.blit_window(painter, wnd, rc)
 
 
 def main(screen):

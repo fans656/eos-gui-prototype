@@ -32,6 +32,11 @@ class Window(object):
         self.z_order = 0
 
         self.active_ = False
+        self.dragging = False
+        self.dragging_init_mouse_x = None
+        self.dragging_init_mouse_y = None
+        self.dragging_init_x = None
+        self.dragging_init_y = None
 
     def rect(self):
         return QRect(self.margin_left(), self.margin_top(),
@@ -39,6 +44,11 @@ class Window(object):
 
     def frame_rect(self):
         return QRect(self.x, self.y, self.frame_width(), self.frame_height())
+
+    def caption_rect(self):
+        border = self.border_width()
+        return QRect(self.x, self.y,
+                     self.frame_width(), self.caption_height() + border)
 
     def border_width(self):
         return self.border_width_
@@ -97,6 +107,9 @@ class Window(object):
         print 'paint_event'
         painter = Painter(self)
 
+    def move_event(self, ev):
+        self.x, self.y = x, y = ev['x'], ev['y']
+
     def system_paint(self):
         if self.attr & WND_USER_DRAWN:
             return
@@ -141,8 +154,23 @@ class Window(object):
                 })
             elif type_ == 'TimerEvent':
                 self.timer_event(msg)
+            elif type_ == 'MoveEvent':
+                self.move_event(msg)
 
     def __lt__(self, o):
         if self.z_order != o.z_order:
             return self.z_order < o.z_order
         return o.active()
+
+    def hit_test_caption(self, x, y):
+        return self.caption_rect().contains(x, y)
+
+    def start_drag(self, x, y):
+        self.dragging = True
+        self.dragging_init_mouse_x = x
+        self.dragging_init_mouse_y = y
+        self.dragging_init_x = self.x
+        self.dragging_init_y = self.y
+
+    def stop_drag(self):
+        self.dragging = False
