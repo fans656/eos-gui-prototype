@@ -15,6 +15,7 @@ WND_CAPTION = 1 << 1
 WND_TRANSPARENT = 1 << 2
 WND_KEEP_BOTTOM = 1 << 3
 WND_KEEP_TOP = 1 << 4
+WND_INACTIVE = 1 << 5
 
 WND_DEFAULT = WND_FRAME | WND_CAPTION
 WND_ONLY_CLIENT = 0
@@ -24,24 +25,30 @@ DEFAULT_BORDER_WIDTH = 2
 DEFAULT_CAPTION_HEIGHT = 20
 
 
-class Window(object):
+class WindowBase(object):
 
-    def __init__(self, x, y, width, height, attr=WND_DEFAULT):
-        self.x = x
-        self.y = y
-        self.width_ = width
-        self.height_ = height
-        self.attr = attr
+    def x(self):
+        """return the screen x of frame left"""
+        return self.x_
+
+    def y(self):
+        """return the screen y of frame top"""
+        return self.y_
 
     def rect(self):
-        return QRect(self.x, self.y, self.width(), self.height())
+        """return the client rect"""
+        return QRect(0, 0, self.width(), self.height())
+
+    def client_rect(self):
+        return QRect(self.margin_left(), self.margin_top(),
+                     self.width(), self.height())
 
     def frame_rect(self):
-        return QRect(self.x, self.y, self.frame_width(), self.frame_height())
+        return QRect(self.x(), self.y(), self.frame_width(), self.frame_height())
 
     def caption_rect(self):
         border = self.border_width()
-        return QRect(self.x, self.y,
+        return QRect(self.x(), self.y(),
                      self.frame_width(), self.caption_height() + border)
 
     def border_width(self):
@@ -63,10 +70,10 @@ class Window(object):
         return self.border_width_
 
     def frame_left(self):
-        return self.x
+        return self.x_
 
     def frame_top(self):
-        return self.y
+        return self.y_
 
     def frame_width(self):
         return self.width_ + 2 * self.border_width()
@@ -82,6 +89,24 @@ class Window(object):
 
     def active(self):
         return self.active_
+
+    def attr(self):
+        return self.attr_
+
+    def on_activate(self):
+        self.active_ = True
+
+    def on_deactivate(self):
+        self.active_ = False
+
+class Window(WindowBase):
+
+    def __init__(self, x, y, width, height, attr=WND_DEFAULT):
+        self.x_ = x
+        self.y_ = y
+        self.width_ = width
+        self.height_ = height
+        self.attr_ = attr
 
     def update(self):
         put_message(QID_GUI, {
@@ -104,10 +129,14 @@ class Window(object):
             type_ = msg['type']
             if type_ == 'on_create':
                 self.on_create(msg)
+            elif type_ == 'on_activate':
+                self.on_activate()
+            elif type_ == 'on_deactivate':
+                self.on_deactivate()
             elif type_ == 'on_paint':
-                if not (self.attr & WND_USER_DRAWN):
+                if not (self.attr() & WND_USER_DRAWN):
                     self.on_system_paint(msg)
-                self.paint_event(msg)
+                self.on_paint(msg)
                 put_message(QUEUE_ID_GUI, {
                     'type': 'PAINTED',
                     'wnd': self
@@ -128,7 +157,7 @@ class Window(object):
         height = self.frame_height()
         color = SteelBlue if self.active() else LightSteelBlue
         client_color = White
-        if self.attr & WND_FRAME:
+        if self.attr() & WND_FRAME:
             surface.fill_rect(0, 0, width, border, color)  # top
             surface.fill_rect(0, height - border, width, border, color)  # bottom
             surface.fill_rect(
@@ -137,11 +166,11 @@ class Window(object):
             surface.fill_rect(
                 width - border, border,
                 border, height - 2 * border, color)  # right
-        if self.attr & WND_CAPTION:
+        if self.attr() & WND_CAPTION:
             surface.fill_rect(
                 border, border,
                 width - 2 * border, self.caption_height(), color)
-        if not (self.attr & WND_TRANSPARENT):
+        if not (self.attr() & WND_TRANSPARENT):
             surface.fill_rect(
                 self.margin_left(), self.margin_top(),
                 self.width(), self.height(), White)
@@ -150,19 +179,27 @@ class Window(object):
         pass
 
 
-class ServerWindow(object):
+class ServerWindow(WindowBase):
 
     def __init__(self, wnd):
         self.wnd = wnd
-        self.x = wnd.x
-        self.y = wnd.y
-        self.width = wnd.width
-        self.height = wnd.height
 
-        wnd.border_width_ = DEFAULT_BORDER_WIDTH if wnd.attr & WND_FRAME else 0
-        wnd.caption_height_ = DEFAULT_CAPTION_HEIGHT if wnd.attr & WND_CAPTION else 0
+        self.x_ = wnd.x()
+        self.y_ = wnd.y()
+        self.width_ = wnd.width()
+        self.height_ = wnd.height()
+        self.attr_ = wnd.attr()
+
+        has_frame = wnd.attr() & WND_FRAME
+        has_caption = wnd.attr() & WND_CAPTION
+
+        border_width = DEFAULT_BORDER_WIDTH if has_frame else 0
+        caption_height = DEFAULT_CAPTION_HEIGHT if has_caption else 0
+
+        self.border_width_ = wnd.border_width_ = border_width
+        self.caption_height_ = wnd.caption_height_ = caption_height
+
         wnd.surface = Surface(wnd.frame_width(), wnd.frame_height())
-        wnd.active_ = True
 
     def __lt__(self, o):
         if self.z_order != o.z_order:

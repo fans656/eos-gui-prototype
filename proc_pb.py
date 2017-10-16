@@ -12,14 +12,14 @@ class Wnd(Window):
     def __init__(self):
         self.im = im = QImage('girl3.jpg')
         super(Wnd, self).__init__(600, 200, im.width(), im.height())
-        self.z_order = 1
 
-    def paint_event(self, ev):
+    def on_paint(self, ev):
         painter = Painter(self)
         painter.draw_bitmap(self.im, 0, 0)
 
 
 def main(video_mem, qt_callback):
-    return
+    import time
+    time.sleep(0.1)
     wnd = Wnd()
     wnd.exec_()

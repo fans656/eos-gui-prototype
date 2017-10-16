@@ -11,15 +11,15 @@ class Wnd(Window):
 
     def __init__(self):
         super(Wnd, self).__init__(300, 100, 400, 300)
-        self.z_order = 1
         self.im = QImage('girl.jpg')
 
-    def paint_event(self, ev):
+    def on_paint(self, ev):
         painter = Painter(self)
-        painter.draw_bitmap(self.im, 0, -20)
+        painter.draw_bitmap(self.im, 0, 0)
 
 
 def main(video_mem, qt_callback):
-    return
+    import time
+    time.sleep(0.2)
     wnd = Wnd()
     wnd.exec_()

@@ -6,17 +6,13 @@ class Painter(object):
 
     def __init__(self, widget):
         self.surface = widget.surface
-        from window import Window
-        if isinstance(widget, Window):
-            self.rc = widget.rect()
-        else:
-            print 'Painter surface is not from Window'
-            exit()
+        self.client_rc = widget.client_rect()
 
     def draw_bitmap(self, bitmap, x, y):
-        dst_rc = QRect(x + self.rc.left(), y + self.rc.top(),
-                       bitmap.width(), bitmap.height()).intersect(self.rc)
+        dst_rc = QRect(x + self.client_rc.left(), y + self.client_rc.top(),
+                       bitmap.width(), bitmap.height())
+        dst_rc = dst_rc.intersected(self.client_rc)
         src_rc = QRect(dst_rc)
-        src_rc.translate(-self.rc.left() - x, -self.rc.top() - y)
-        src_rc.intersect(bitmap.rect())
+        src_rc.translate(-self.client_rc.left() - x, -self.client_rc.top() - y)
+        src_rc = src_rc.intersected(bitmap.rect())
         self.surface.blit(bitmap, src_rc, dst_rc)

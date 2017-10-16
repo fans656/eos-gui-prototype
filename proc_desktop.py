@@ -13,12 +13,14 @@ class DesktopWindow(Window):
 
     def __init__(self, width, height):
         super(DesktopWindow, self).__init__(
-            0, 0, width, height, WND_ONLY_CLIENT | WND_KEEP_BOTTOM)
+            0, 0, width, height,
+            WND_ONLY_CLIENT | WND_KEEP_BOTTOM | WND_INACTIVE)
         self.im = QImage('cheetah.png')
         #self.im2 = QImage('cheetah-sun.jpg')
         #self.timer = self.set_timer(1000)
+        self.active_ = False
 
-    def paint_event(self, ev):
+    def on_paint(self, ev):
         painter = Painter(self)
         painter.draw_bitmap(self.im, 0, 0)
 

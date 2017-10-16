@@ -76,13 +76,6 @@ class GUI(object):
             else:
                 print 'Unknown', msg
 
-    def on_create_window(self, wnd):
-        wnds = self.wnds
-        swnd = ServerWindow(wnd)
-        wnds.append(swnd)
-        self.put_message(wnd, 'on_create', swnd=swnd)
-        self.put_message(wnd, 'on_paint', swnd=swnd)
-
     def on_get_screen_info(self, pid):
         put_message(pid, {
             'type': 'SCREEN_INFO',
@@ -90,8 +83,16 @@ class GUI(object):
             'height': SCREEN_HEIGHT
         })
 
+    def on_create_window(self, wnd):
+        wnds = self.wnds
+        swnd = ServerWindow(wnd)
+        wnds.append(swnd)
+        self.put_message(wnd, 'on_create', swnd=swnd)
+        self.activate_window(swnd)
+        self.put_message(wnd, 'on_paint', swnd=swnd)
+
     def on_painted(self, wnd):
-        self.invalidate(wnd.rect())
+        self.invalidate(wnd.frame_rect())
 
     def on_mouse_move(self, ev):
         x, y = ev['x'], ev['y']
@@ -132,22 +133,18 @@ class GUI(object):
                     self.paint_window(wnds[-1])
                 break
 
-    def drag(self, x, y):
-        wnd = self.wnds[-1]
-        if wnd.dragging:
-            invalid_rc = wnd.frame_rect()
-            dx = x - wnd.dragging_init_mouse_x
-            dy = y - wnd.dragging_init_mouse_y
-            if dx == 0 and dy == 0:
-                return
-            wnd.x = wnd.dragging_init_x + dx
-            wnd.y = wnd.dragging_init_y + dy
-            self.move_window(wnd, wnd.x, wnd.y)
-            self.invalidate(invalid_rc | wnd.frame_rect())
-
-    def activate_window(self, wnd, active=True):
-        wnd.active_ = active
-        self.paint_window(wnd)
+    #def drag(self, x, y):
+    #    wnd = self.wnds[-1]
+    #    if wnd.dragging:
+    #        invalid_rc = wnd.frame_rect()
+    #        dx = x - wnd.dragging_init_mouse_x
+    #        dy = y - wnd.dragging_init_mouse_y
+    #        if dx == 0 and dy == 0:
+    #            return
+    #        wnd.x = wnd.dragging_init_x + dx
+    #        wnd.y = wnd.dragging_init_y + dy
+    #        self.move_window(wnd, wnd.x, wnd.y)
+    #        self.invalidate(invalid_rc | wnd.frame_rect())
 
     def paint_window(self, wnd):
         put_message(wnd, {
@@ -161,31 +158,43 @@ class GUI(object):
             'y': y,
         }, True)
 
-    def invalidate(self, rc):
+    def invalidate(self, invalid_rc):
         painter = QPainter(self.screen)
-        invalid_rcs = [rc]
-        while invalid_rcs:
-            invalid_rc = invalid_rcs.pop()
+        rcs = [QRect(invalid_rc)]
+        while rcs:
+            rc = rcs.pop()
             draw_wnds = []
             for swnd in reversed(self.wnds):
                 wnd = swnd.wnd
                 wnd_rc = wnd.frame_rect()
-                draw_rc = invalid_rc.intersected(wnd_rc)
+                draw_rc = rc.intersected(wnd_rc)
                 if draw_rc.isEmpty():
                     continue
                 draw_wnds.append((wnd, draw_rc))
-                remained_rcs = subtract_rect(invalid_rc, draw_rc)
-                invalid_rcs.extend(remained_rcs)
+                remained_rcs = subtract_rect(rc, draw_rc)
+                rcs.extend(remained_rcs)
             for wnd, rc in reversed(draw_wnds):
                 self.blit_window(painter, wnd, rc)
-        self.update_screen(rc)
+        self.update_screen(invalid_rc)
 
     def update_screen(self, rc=None):
         painter = QPainter(self.video_mem)
         if rc is None:
             rc = self.screen.rect()
-        painter.drawImage(0, 0, self.screen)
+        painter.drawImage(rc, self.screen, rc)
         self.debug('update screen', {'update screen': rc})
+
+    def activate_window(self, wnd):
+        if wnd.attr() & WND_INACTIVE:
+            return
+        for w in self.wnds:
+            if (w.attr() & WND_INACTIVE) or w is wnd:
+                continue
+            w.on_deactivate()
+            self.put_message(w.wnd, 'on_deactivate')
+            self.put_message(w.wnd, 'on_paint')
+        wnd.on_activate()
+        self.put_message(wnd.wnd, 'on_activate')
 
     def put_message(self, receiver, type_, **data):
         msg = {
