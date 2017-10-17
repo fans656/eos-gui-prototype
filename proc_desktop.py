@@ -30,8 +30,10 @@ class DesktopWindow(Window):
 
 
 def main(video_mem, qt_callback):
-    gui_request('GET_SCREEN_INFO', pid=main)
-    msg = get_message(main)
+    import time
+    time.sleep(0.1)
+    gui_request('GET_SCREEN_INFO', pid=DesktopWindow.__name__)
+    msg = get_message(DesktopWindow.__name__)
     width = msg['width']
     height = msg['height']
     wnd = DesktopWindow(width, height)

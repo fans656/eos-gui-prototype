@@ -1,4 +1,5 @@
 import time
+import os
 
 from PySide.QtCore import *
 from PySide.QtGui import *
@@ -21,7 +22,7 @@ WND_DEFAULT = WND_FRAME | WND_CAPTION
 WND_ONLY_CLIENT = 0
 WND_USER_DRAWN = WND_TRANSPARENT
 
-DEFAULT_BORDER_WIDTH = 2
+DEFAULT_BORDER_WIDTH = 5
 DEFAULT_CAPTION_HEIGHT = 20
 
 
@@ -99,6 +100,9 @@ class WindowBase(object):
     def on_deactivate(self):
         self.active_ = False
 
+    def __repr__(self):
+        return self.__class__.__name__
+
 class Window(WindowBase):
 
     def __init__(self, x, y, width, height, attr=WND_DEFAULT):
@@ -123,7 +127,9 @@ class Window(WindowBase):
         })
 
     def exec_(self):
-        gui_request('CREATE_WINDOW', wnd=self)
+        gui_request('CREATE_WINDOW', wnd=self,
+                    xy=(self.x(), self.y()),
+                    wh=(self.width(), self.height()))
         while True:
             msg = get_message(self)
             type_ = msg['type']
@@ -181,14 +187,17 @@ class Window(WindowBase):
 
 class ServerWindow(WindowBase):
 
-    def __init__(self, wnd):
+    def __init__(self, wnd, gui):
         self.wnd = wnd
+        self.gui = gui
 
         self.x_ = wnd.x()
         self.y_ = wnd.y()
         self.width_ = wnd.width()
         self.height_ = wnd.height()
         self.attr_ = wnd.attr()
+
+        self.active_ = False
 
         has_frame = wnd.attr() & WND_FRAME
         has_caption = wnd.attr() & WND_CAPTION
@@ -199,9 +208,32 @@ class ServerWindow(WindowBase):
         self.border_width_ = wnd.border_width_ = border_width
         self.caption_height_ = wnd.caption_height_ = caption_height
 
-        wnd.surface = Surface(wnd.frame_width(), wnd.frame_height())
+        surface = Surface(wnd.frame_width(), wnd.frame_height())
+        self.surface = wnd.surface = surface
+
+    def on_create(self):
+        self.gui.put_message(self.wnd, 'on_create')
+
+    def on_activate(self):
+        WindowBase.on_activate(self)
+        self.put_message('on_activate')
+        self.on_paint()
+
+    def on_deactivate(self):
+        WindowBase.on_deactivate(self)
+        self.put_message('on_deactivate')
+        self.on_paint()
+
+    def on_paint(self):
+        self.put_message('on_paint')
 
     def __lt__(self, o):
         if self.z_order != o.z_order:
             return self.z_order < o.z_order
         return o.active()
+
+    def __repr__(self):
+        return repr(self.wnd)
+
+    def put_message(self, event_name, **data):
+        self.gui.put_message(self.wnd, event_name, **data)

@@ -7,10 +7,10 @@ from painter import Painter
 from message import get_message, put_message
 
 
-class Wnd(Window):
+class WndA(Window):
 
     def __init__(self):
-        super(Wnd, self).__init__(300, 100, 400, 300)
+        super(WndA, self).__init__(300, 100, 400, 300)
         self.im = QImage('girl.jpg')
 
     def on_paint(self, ev):
@@ -21,5 +21,5 @@ class Wnd(Window):
 def main(video_mem, qt_callback):
     import time
     time.sleep(0.2)
-    wnd = Wnd()
+    wnd = WndA()
     wnd.exec_()
