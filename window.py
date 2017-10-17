@@ -112,24 +112,11 @@ class Window(WindowBase):
         self.height_ = height
         self.attr_ = attr
 
-    def update(self):
-        put_message(QID_GUI, {
-            'type': 'UPDATE',
-            'wnd': self
-        })
-
-    def set_timer(self, ms, singleshot=False):
-        put_message(QID_KERNEL, {
-            'type': 'SET_TIMER',
-            'ms': ms,
-            'qid': self,
-            'singleshot': singleshot
-        })
-
     def exec_(self):
-        gui_request('CREATE_WINDOW', wnd=self,
-                    xy=(self.x(), self.y()),
-                    wh=(self.width(), self.height()))
+        self.put_message(
+            'CREATE_WINDOW',
+            xy=(self.x(), self.y()),
+            wh=(self.width(), self.height()))
         while True:
             msg = get_message(self)
             type_ = msg['type']
@@ -143,17 +130,18 @@ class Window(WindowBase):
                 if not (self.attr() & WND_USER_DRAWN):
                     self.on_system_paint(msg)
                 self.on_paint(msg)
-                put_message(QUEUE_ID_GUI, {
-                    'type': 'PAINTED',
-                    'wnd': self
-                })
+                self.put_message('PAINTED')
             elif type_ == 'on_move':
+                self.on_system_move(msg)
                 self.on_move(msg)
 
     def on_create(self, ev):
         pass
 
     def on_paint(self, ev):
+        pass
+
+    def on_move(self, ev):
         pass
 
     def on_system_paint(self, ev):
@@ -181,8 +169,13 @@ class Window(WindowBase):
                 self.margin_left(), self.margin_top(),
                 self.width(), self.height(), White)
 
-    def on_move(self, ev):
-        pass
+    def on_system_move(self, ev):
+        self.x_ = ev['x']
+        self.y_ = ev['y']
+
+    def put_message(self, type_, **data):
+        data.update({'type': type_, 'sender': self})
+        put_message(QUEUE_ID_GUI, data)
 
 
 class ServerWindow(WindowBase):
@@ -211,8 +204,10 @@ class ServerWindow(WindowBase):
         surface = Surface(wnd.frame_width(), wnd.frame_height())
         self.surface = wnd.surface = surface
 
+        self.dragging = False
+
     def on_create(self):
-        self.gui.put_message(self.wnd, 'on_create')
+        self.put_message('on_create')
 
     def on_activate(self):
         WindowBase.on_activate(self)
@@ -224,6 +219,21 @@ class ServerWindow(WindowBase):
 
     def on_paint(self):
         self.put_message('on_paint')
+
+    def on_move(self, x, y):
+        self.x_ = x
+        self.y_ = y
+        self.put_message('on_move', x=x, y=y)
+
+    def start_drag(self, x, y):
+        self.dragging = True
+        self.dragging_initial_frame_x = self.x()
+        self.dragging_initial_frame_y = self.y()
+        self.dragging_initial_mouse_x = x
+        self.dragging_initial_mouse_y = y
+
+    def stop_drag(self):
+        self.dragging = False
 
     def __lt__(self, o):
         if self.z_order != o.z_order:

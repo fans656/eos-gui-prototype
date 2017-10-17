@@ -18,6 +18,14 @@ def rect_sub(a, b):
     return res
 
 
+def rect_or(a, b):
+    c = a.intersected(b)
+    res = [b]
+    if not c.isEmpty():
+        res.extend(rect_sub(a, c))
+    return res
+
+
 if __name__ == '__main__':
     x, y = 0, 0
     w, h = 200, 100

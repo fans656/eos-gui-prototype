@@ -20,6 +20,8 @@ class GUI(object):
         self.screen = QImage(SCREEN_WIDTH, SCREEN_HEIGHT, QImage.Format_ARGB32)
         self.wnds = []
 
+        self.dragging_wnd = None
+
     def exec_(self):
         while True:
             msg = get_message(QUEUE_ID_GUI)
@@ -32,13 +34,13 @@ class GUI(object):
             elif msg_type == 'MOUSE_RELEASE':
                 self.on_mouse_release(msg)
             elif msg_type == 'CREATE_WINDOW':
-                self.on_create_window(msg['wnd'])
+                self.on_create_window(msg['sender'])
             elif msg_type == 'GET_SCREEN_INFO':
                 self.on_get_screen_info(msg['pid'])
             elif msg_type == 'PAINTED':
-                self.on_painted(msg['wnd'])
+                self.on_painted(msg['sender'])
             elif msg_type == 'UPDATE':
-                self.paint_window(msg['wnd'])
+                self.paint_window(msg['sender'])
             else:
                 print 'Unknown', msg
 
@@ -51,21 +53,31 @@ class GUI(object):
         wnd = ServerWindow(wnd, gui=self)
         self.add_window(wnd)
         wnd.on_create()
-        self.activate_window(wnd)
+        if not self.activate_window(wnd):
+            wnd.on_paint()
 
     def on_painted(self, wnd):
         self.invalidate([wnd.frame_rect()])
 
     def on_mouse_move(self, ev):
-        x, y = ev['x'], ev['y']
-        buttons = ev['buttons']
+        x, y, buttons = ev['x'], ev['y'], ev['buttons']
+        if self.dragging_wnd:
+            self.do_drag(x, y)
 
     def on_mouse_press(self, ev):
-        x, y = ev['x'], ev['y']
-        self.hit_test_activate(x, y)
+        x, y, buttons = ev['x'], ev['y'], ev['buttons']
+        if self.hit_test_activate(x, y):
+            if buttons == BUTTON_LEFT:
+                wnd = self.hit_test_drag(x, y)
+                if wnd:
+                    wnd.start_drag(x, y)
+                    self.dragging_wnd = wnd
 
     def on_mouse_release(self, ev):
-        x, y = ev['x'], ev['y']
+        x, y, buttons = ev['x'], ev['y'], ev['buttons']
+        if self.dragging_wnd:
+            self.dragging_wnd.stop_drag()
+            self.dragging_wnd = None
 
     def add_window(self, wnd):
         wnds = self.wnds
@@ -78,6 +90,11 @@ class GUI(object):
         for wnd in reversed(self.wnds):
             if wnd.frame_rect().contains(x, y):
                 return self.activate_window(wnd)
+
+    def hit_test_drag(self, x, y):
+        for wnd in reversed(self.wnds):
+            if wnd.caption_rect().contains(x, y):
+                return wnd
 
     def paint_window(self, wnd):
         put_message(wnd, {
@@ -110,7 +127,9 @@ class GUI(object):
             self.update_screen(rc)
 
     def blit_window(self, painter, wnd, rc):
-        self.debug('blit_window', {'wnd': wnd, 'rc': rc})
+        self.debug('blit_window', {
+            'wnd': wnd, 'rc': rc,
+            '__debug_level': DEBUG_DEBUG})
         painter.drawImage(rc, wnd.surface.im,
                           rc.translated(-wnd.frame_left(), -wnd.frame_top()))
 
@@ -124,7 +143,6 @@ class GUI(object):
             pwnd.on_deactivate()
             pwnd.on_paint()
         if wnd.attr() & WND_INACTIVE:
-            wnd.on_paint()
             return False
         else:
             wnd.on_activate()
@@ -136,6 +154,19 @@ class GUI(object):
         wnds = self.wnds
         i = wnds.index(wnd)
         wnds[-1], wnds[i] = wnds[i], wnds[-1]
+
+    def do_drag(self, mouse_x, mouse_y):
+        wnd = self.dragging_wnd
+        old_rc = wnd.frame_rect()
+        dx = mouse_x - wnd.dragging_initial_mouse_x
+        dy = mouse_y - wnd.dragging_initial_mouse_y
+        if dx == 0 and dy == 0:
+            return
+        wnd_x = wnd.dragging_initial_frame_x + dx
+        wnd_y = wnd.dragging_initial_frame_y + dy
+        wnd.on_move(wnd_x, wnd_y)
+        new_rc = wnd.frame_rect()
+        self.invalidate(rect_or(old_rc, new_rc))
 
     @property
     def active_window(self):
