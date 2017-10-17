@@ -15,7 +15,7 @@ WND_FRAME = 1 << 0
 WND_CAPTION = 1 << 1
 WND_TRANSPARENT = 1 << 2
 WND_KEEP_BOTTOM = 1 << 3
-WND_KEEP_TOP = 1 << 4
+#WND_KEEP_TOP = 1 << 4
 WND_INACTIVE = 1 << 5
 
 WND_DEFAULT = WND_FRAME | WND_CAPTION
@@ -217,12 +217,10 @@ class ServerWindow(WindowBase):
     def on_activate(self):
         WindowBase.on_activate(self)
         self.put_message('on_activate')
-        self.on_paint()
 
     def on_deactivate(self):
         WindowBase.on_deactivate(self)
         self.put_message('on_deactivate')
-        self.on_paint()
 
     def on_paint(self):
         self.put_message('on_paint')

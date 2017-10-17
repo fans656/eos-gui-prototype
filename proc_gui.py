@@ -49,7 +49,7 @@ class GUI(object):
 
     def on_create_window(self, wnd):
         wnd = ServerWindow(wnd, gui=self)
-        self.wnds.append(wnd)
+        self.add_window(wnd)
         wnd.on_create()
         self.activate_window(wnd)
 
@@ -62,20 +62,22 @@ class GUI(object):
 
     def on_mouse_press(self, ev):
         x, y = ev['x'], ev['y']
+        self.hit_test_activate(x, y)
 
     def on_mouse_release(self, ev):
         x, y = ev['x'], ev['y']
 
-    def activate(self, x, y):
+    def add_window(self, wnd):
         wnds = self.wnds
-        for wnd in reversed(wnds[1:]):
+        if wnd.attr() & WND_KEEP_BOTTOM:
+            self.wnds = [wnd] + wnds
+        else:
+            wnds.append(wnd)
+
+    def hit_test_activate(self, x, y):
+        for wnd in reversed(self.wnds):
             if wnd.frame_rect().contains(x, y):
-                if not wnd.active():
-                    self.activate_window(wnds[-1], False)
-                    self.activate_window(wnd, True)
-                    self.wnds.sort()
-                    self.paint_window(wnds[-1])
-                break
+                return self.activate_window(wnd)
 
     def paint_window(self, wnd):
         put_message(wnd, {
@@ -117,13 +119,23 @@ class GUI(object):
         painter.drawImage(rc, self.screen, rc)
 
     def activate_window(self, wnd):
-        prev_active_wnd = self.active_window
-        if prev_active_wnd:
-            prev_active_wnd.on_deactivate()
+        pwnd = self.active_window
+        if pwnd:
+            pwnd.on_deactivate()
+            pwnd.on_paint()
         if wnd.attr() & WND_INACTIVE:
             wnd.on_paint()
+            return False
         else:
             wnd.on_activate()
+            self.put_window_at_top(wnd)
+            wnd.on_paint()
+            return True
+
+    def put_window_at_top(self, wnd):
+        wnds = self.wnds
+        i = wnds.index(wnd)
+        wnds[-1], wnds[i] = wnds[i], wnds[-1]
 
     @property
     def active_window(self):
@@ -139,7 +151,9 @@ class GUI(object):
         put_message(receiver, msg)
 
     def debug(self, tag, msg):
-        self.qcommunicate.signal.emit(tag, msg)
+        level = msg.get('__debug_level')
+        if level is None or level >= DEBUG_LEVEL:
+            self.qcommunicate.signal.emit(tag, msg)
 
 
 def main(video_mem, qt_callback):

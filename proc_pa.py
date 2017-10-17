@@ -19,7 +19,5 @@ class WndA(Window):
 
 
 def main(video_mem, qt_callback):
-    import time
-    time.sleep(0.2)
     wnd = WndA()
     wnd.exec_()

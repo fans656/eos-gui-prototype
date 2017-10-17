@@ -48,22 +48,25 @@ class Screen(QWidget):
 
     def mouseMoveEvent(self, ev):
         put_message(QUEUE_ID_GUI, {
-            'type': 'MOUSE_MOVE',
-            'x': ev.x(), 'y': ev.y(), 'buttons': ev.buttons()
+            'type': 'MOUSE_MOVE', '__debug_level': DEBUG_VERBOSE,
+            'x': ev.x(), 'y': ev.y(),
+            'buttons': int(ev.buttons())
         })
         self.mouse_event.emit(ev.x(), ev.y(), ev.buttons())
 
     def mousePressEvent(self, ev):
         put_message(QUEUE_ID_GUI, {
             'type': 'MOUSE_PRESS',
-            'x': ev.x(), 'y': ev.y(), 'buttons': ev.buttons()
+            'x': ev.x(), 'y': ev.y(),
+            'buttons': int(ev.buttons())
         })
         self.mouse_event.emit(ev.x(), ev.y(), ev.buttons())
 
     def mouseReleaseEvent(self, ev):
         put_message(QUEUE_ID_GUI, {
             'type': 'MOUSE_RELEASE',
-            'x': ev.x(), 'y': ev.y(), 'buttons': ev.buttons()
+            'x': ev.x(), 'y': ev.y(),
+            'buttons': int(ev.buttons())
         })
         self.mouse_event.emit(ev.x(), ev.y(), ev.buttons())
 

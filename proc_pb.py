@@ -20,6 +20,6 @@ class WndB(Window):
 
 def main(video_mem, qt_callback):
     import time
-    time.sleep(0.3)
+    time.sleep(0.1)
     wnd = WndB()
     wnd.exec_()

@@ -30,8 +30,6 @@ class DesktopWindow(Window):
 
 
 def main(video_mem, qt_callback):
-    import time
-    time.sleep(0.1)
     gui_request('GET_SCREEN_INFO', pid=DesktopWindow.__name__)
     msg = get_message(DesktopWindow.__name__)
     width = msg['width']
