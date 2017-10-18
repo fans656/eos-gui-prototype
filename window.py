@@ -23,7 +23,7 @@ WND_ONLY_CLIENT = 0
 WND_USER_DRAWN = WND_TRANSPARENT
 
 DEFAULT_BORDER_WIDTH = 10
-DEFAULT_CAPTION_HEIGHT = 20
+DEFAULT_CAPTION_HEIGHT = 25
 
 
 class WindowBase(object):
@@ -91,14 +91,47 @@ class WindowBase(object):
     def height(self):
         return self.height_
 
+    def system_control_margin(self):
+        return self.caption_height() / 3
+
+    def close_rect(self):
+        border = self.border_width()
+        rc = QRect(border, border, self.width(), self.caption_height())
+        margin = self.system_control_margin()
+        side = rc.height() - 2 * margin
+        rc.setTop(rc.top() + margin)
+        rc.setBottom(rc.bottom() - margin)
+        rc.setLeft(rc.right() - side)
+        rc.translate(-margin, 0)
+        return rc
+
+    def maximize_rect(self):
+        rc = self.close_rect()
+        margin = self.system_control_margin()
+        return rc.translated(-(margin + rc.width() + 4), 0)
+
+    def minimize_rect(self):
+        rc = self.maximize_rect()
+        margin = self.system_control_margin()
+        return rc.translated(-(margin + rc.width() + 4), 0)
+
     def active(self):
         return self.active_
 
     def attr(self):
         return self.attr_
 
+    def destroyed(self):
+        return self.destroyed_
+
     def transparent(self):
         return self.attr() & WND_TRANSPARENT
+
+    def title(self):
+        return self.title_
+
+    def set_title(self, title):
+        self.title_ = title
 
     def on_activate(self):
         self.active_ = True
@@ -110,6 +143,9 @@ class WindowBase(object):
         return (
             x - self.x() - self.margin_left(),
             y - self.y() - self.margin_top())
+
+    def screen_to_window(self, x, y):
+        return x - self.x(), y - self.y()
 
     def __repr__(self):
         return self.__class__.__name__
@@ -124,13 +160,15 @@ class Window(WindowBase):
         self.attr_ = attr
 
         self.active_ = False
+        self.title_ = ''
+        self.destroyed_ = False
 
     def exec_(self):
         self.put_message(
             'CREATE_WINDOW',
             xy=(self.x(), self.y()),
             wh=(self.width(), self.height()))
-        while True:
+        while not self.destroyed():
             msg = get_message(self)
             type_ = msg['type']
             if type_ == 'on_create':
@@ -148,6 +186,13 @@ class Window(WindowBase):
                 self.on_move(msg)
             elif type_ == 'on_mouse_press':
                 self.on_mouse_press(msg)
+            elif type_ == 'on_mouse_move_system':
+                self.on_mouse_move_system(msg)
+            elif type_ == 'on_mouse_press_system':
+                self.on_mouse_press_system(msg)
+            elif type_ == 'on_destroy':
+                if self.on_destroy(msg):
+                    self.destroyed_ = True
 
     def update(self):
         self.put_message('UPDATE')
@@ -164,8 +209,23 @@ class Window(WindowBase):
     def on_mouse_press(self, ev):
         pass
 
+    def on_destroy(self, ev):
+        return True
+
+    def on_mouse_press_system(self, ev):
+        x, y = ev['x'], ev['y']
+        if self.close_rect().contains(x, y):
+            self.put_message('DESTROY')
+        elif self.maximize_rect().contains(x, y):
+            print 'maximize'
+        elif self.minimize_rect().contains(x, y):
+            print 'minimize'
+
     def on_mouse_release(self, ev):
         pass
+
+    def on_mouse_move_system(self, ev):
+        x, y = ev['x'], ev['y']
 
     def on_system_paint(self, ev):
         surface = self.surface
@@ -197,10 +257,37 @@ class Window(WindowBase):
             pen.setColor(color2qcolor(caption_color))
             painter.setPen(pen)
             painter.drawRect(rc)
+        qpainter = self.surface.painter
+        pen = qpainter.pen()
         if self.attr() & WND_CAPTION:
-            surface.fill_rect(border, border,
-                              width - 2 * border, self.caption_height(),
-                              caption_color)
+            caption_rc = QRect(border, border,
+                               width - 2 * border, self.caption_height())
+            qpainter.fillRect(rc, color2qcolor(caption_color))
+
+            color = color2qcolor(DarkWhite)
+            pen.setColor(color)
+            qpainter.setPen(pen)
+            rc = caption_rc.translated(10, 0)
+            qpainter.drawText(rc, Qt.AlignLeft | Qt.AlignVCenter, self.title_)
+
+            qpainter.save()
+            qpainter.setRenderHint(QPainter.Antialiasing)
+
+            # close
+            pen.setWidth(2)
+            qpainter.setPen(pen)
+            rc = self.close_rect()
+            qpainter.drawLine(rc.topLeft(), rc.bottomRight())
+            qpainter.drawLine(rc.topRight(), rc.bottomLeft())
+
+            # maximize
+            qpainter.drawRect(self.maximize_rect())
+
+            # minimize
+            rc = self.minimize_rect()
+            qpainter.drawLine(rc.bottomLeft(), rc.bottomRight())
+
+            qpainter.restore()
 
     def on_system_move(self, ev):
         self.x_ = ev['x']
@@ -258,11 +345,22 @@ class ServerWindow(WindowBase):
         self.y_ = y
         self.put_message('on_move', x=x, y=y)
 
+    def on_mouse_move_system(self, x, y, buttons):
+        x, y = self.screen_to_window(x, y)
+        self.put_message('on_mouse_move_system', x=x, y=y, buttons=buttons)
+
+    def on_mouse_press_system(self, x, y, buttons):
+        x, y = self.screen_to_window(x, y)
+        self.put_message('on_mouse_press_system', x=x, y=y, buttons=buttons)
+
     def on_mouse_press(self, x, y, buttons):
         x, y = self.screen_to_client(x, y)
         self.put_message('on_mouse_press', x=x, y=y, buttons=buttons)
 
-    def hit_test(self, x, y):
+    def hit_test_caption(self, x, y):
+        return self.caption_rect().contains(x, y)
+
+    def hit_test_client(self, x, y):
         return self.abs_client_rect().contains(x, y)
 
     def hit_test_activate(self, x, y):

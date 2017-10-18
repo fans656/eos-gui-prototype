@@ -189,6 +189,8 @@ class Computer(QDialog):
         self.procs = []
         self.start_proc('gui')
         self.start_proc('desktop')
+        self.start_proc('pa')
+        self.start_proc('pb')
 
     def on_gui_message(self, tag, msg):
         if tag.startswith('tab'):

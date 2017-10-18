@@ -11,7 +11,8 @@ class WndA(Window):
 
     def __init__(self):
         self.im = im = QImage('img/girl.jpg')
-        super(WndA, self).__init__(300, 100, 400, 300)
+        super(WndA, self).__init__(300, 50, 400, 300)
+        self.set_title('Yurisa')
 
     def on_paint(self, ev):
         painter = Painter(self)

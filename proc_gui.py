@@ -43,6 +43,8 @@ class GUI(object):
                 self.paint_window(msg['sender'])
             elif msg_type == 'OPEN_PROC':
                 self.open_proc(msg['name'])
+            elif msg_type == 'DESTROY':
+                self.on_destroy(msg['sender'])
             else:
                 print 'Unknown', msg
 
@@ -68,9 +70,18 @@ class GUI(object):
         x, y, buttons = ev['x'], ev['y'], ev['buttons']
         if self.dragging_wnd:
             self.do_drag(x, y)
+            return
+        #for wnd in reversed(self.wnds):
+        #    if wnd.hit_test_caption(x, y):
+        #        wnd.on_mouse_move_system(x, y, buttons)
+        #        break
 
     def on_mouse_press(self, ev):
         x, y, buttons = ev['x'], ev['y'], ev['buttons']
+        for wnd in reversed(self.wnds):
+            if wnd.hit_test_caption(x, y):
+                wnd.on_mouse_press_system(x, y, buttons)
+                break
         if self.hit_test_activate(x, y):
             if buttons == BUTTON_LEFT:
                 wnd = self.hit_test_drag(x, y)
@@ -78,8 +89,13 @@ class GUI(object):
                     wnd.start_drag(x, y)
                     self.dragging_wnd = wnd
                     return
+            if buttons == BUTTON_RIGHT:
+                for wnd in reversed(self.wnds):
+                    if wnd.hit_test_client(x, y):
+                        self.on_destroy(wnd.wnd)
+                        break
         for wnd in reversed(self.wnds):
-            if wnd.hit_test(x, y):
+            if wnd.hit_test_client(x, y):
                 wnd.on_mouse_press(x, y, buttons)
                 break
 
@@ -88,6 +104,17 @@ class GUI(object):
         if self.dragging_wnd:
             self.dragging_wnd.stop_drag()
             self.dragging_wnd = None
+
+    def on_destroy(self, wnd):
+        for swnd in self.wnds:
+            if swnd.wnd is wnd:
+                break
+        self.wnds.remove(swnd)
+        if swnd.active():
+            self.activate_window(self.wnds[-1])
+        self.invalidate([swnd.frame_rect()])
+        self.put_message(wnd, 'on_destroy')
+        self.debug_update_windows()
 
     def add_window(self, wnd):
         wnds = self.wnds

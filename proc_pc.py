@@ -13,6 +13,7 @@ class WndC(Window):
         self.im = im = QImage('img/walle.png')
         super(WndC, self).__init__(800, 0, im.width(), im.height(),
                                    WND_TRANSPARENT)
+        self.set_title('Wall-E')
 
     def on_paint(self, ev):
         painter = Painter(self)
