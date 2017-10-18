@@ -31,6 +31,10 @@ class Desktop(Window):
                       if fname.startswith('icon-')]
         self.proc_names = ['pa', 'pb', 'pc']
         self.cur_icon = None
+        self.wnds = []
+
+    def on_create(self, ev):
+        self.put_message('REGISTER_WINDOWS_CHANGE')
 
     def on_paint(self, ev):
         painter = Painter(self)
@@ -61,6 +65,19 @@ class Desktop(Window):
         qpainter.setPen(pen)
         qpainter.drawText(rc, Qt.AlignCenter, time_text)
 
+        rc = QRect(task_bar_rc)
+        rc.setRight(200)
+        margin = 1
+        rc.translate(margin, 0)
+        for wnd in self.wnds[1:]:
+            color = 0x22ffffff
+            if wnd.active():
+                color = 0x44ffffff
+            qpainter.fillRect(rc, color2qcolor(color))
+            text_rc = rc.adjusted(20, 0, -20, 0)
+            qpainter.drawText(text_rc, Qt.AlignLeft | Qt.AlignVCenter, wnd.title())
+            rc.translate(rc.width() + margin, 0)
+
     def on_mouse_press(self, ev):
         x, y = ev['x'], ev['y']
         row = y / (ICON_SIZE + 2 * ICON_MARGIN)
@@ -79,6 +96,18 @@ class Desktop(Window):
             else:
                 self.cur_icon = row
             self.update()
+
+    def on_windows_changed(self, ev):
+        wnds = ev['wnds']
+        new_wnds = []
+        for w in self.wnds:
+            if w in wnds:
+                new_wnds.append(w)
+        for w in wnds:
+            if w not in self.wnds:
+                new_wnds.append(w)
+        self.wnds = new_wnds
+        self.update()
 
 
 def main(video_mem, qt_callback):

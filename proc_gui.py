@@ -22,6 +22,8 @@ class GUI(object):
 
         self.dragging_wnd = None
 
+        self.windows_change_listener = []
+
     def exec_(self):
         while True:
             msg = get_message(QUEUE_ID_GUI)
@@ -45,6 +47,8 @@ class GUI(object):
                 self.open_proc(msg['name'])
             elif msg_type == 'DESTROY':
                 self.on_destroy(msg['sender'])
+            elif msg_type == 'REGISTER_WINDOWS_CHANGE':
+                self.on_register_windows_change(msg['sender'])
             else:
                 print 'Unknown', msg
 
@@ -114,7 +118,20 @@ class GUI(object):
             self.activate_window(self.wnds[-1])
         self.invalidate([swnd.frame_rect()])
         self.put_message(wnd, 'on_destroy')
+        self.on_windows_changed()
+
+    def on_windows_changed(self):
+        for l in self.windows_change_listener:
+            l.on_windows_changed([w.wnd for w in self.wnds])
         self.debug_update_windows()
+
+    def on_register_windows_change(self, wnd):
+        wnd = self.get_server_window(wnd)
+        self.windows_change_listener.append(wnd)
+        self.on_windows_changed()
+
+    def get_server_window(self, wnd):
+        return next(w for w in self.wnds if w.wnd is wnd)
 
     def add_window(self, wnd):
         wnds = self.wnds
@@ -122,7 +139,7 @@ class GUI(object):
             self.wnds = [wnd] + wnds
         else:
             wnds.append(wnd)
-        self.debug_update_windows()
+        self.on_windows_changed()
 
     def hit_test_activate(self, x, y):
         for wnd in reversed(self.wnds):
@@ -178,13 +195,14 @@ class GUI(object):
         if pwnd:
             pwnd.on_deactivate()
             pwnd.on_paint()
-        if wnd.attr() & WND_INACTIVE:
-            return False
-        else:
+        res = False
+        if not (wnd.attr() & WND_INACTIVE):
             wnd.on_activate()
             self.put_window_at_top(wnd)
             wnd.on_paint()
-            return True
+            res = True
+        self.on_windows_changed()
+        return res
 
     def put_window_at_top(self, wnd):
         wnds = self.wnds

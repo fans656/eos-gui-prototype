@@ -190,6 +190,8 @@ class Window(WindowBase):
                 self.on_mouse_move_system(msg)
             elif type_ == 'on_mouse_press_system':
                 self.on_mouse_press_system(msg)
+            elif type_ == 'on_windows_changed':
+                self.on_windows_changed(msg)
             elif type_ == 'on_destroy':
                 if self.on_destroy(msg):
                     self.destroyed_ = True
@@ -356,6 +358,9 @@ class ServerWindow(WindowBase):
     def on_mouse_press(self, x, y, buttons):
         x, y = self.screen_to_client(x, y)
         self.put_message('on_mouse_press', x=x, y=y, buttons=buttons)
+
+    def on_windows_changed(self, wnds):
+        self.put_message('on_windows_changed', wnds=wnds)
 
     def hit_test_caption(self, x, y):
         return self.caption_rect().contains(x, y)
