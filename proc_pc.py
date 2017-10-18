@@ -7,11 +7,11 @@ from painter import Painter
 from message import get_message, put_message
 
 
-class WndA(Window):
+class WndC(Window):
 
     def __init__(self):
-        self.im = im = QImage('png.png')
-        super(WndA, self).__init__(300, 100, im.width(), im.height(),
+        self.im = im = QImage('walle.png')
+        super(WndC, self).__init__(800, 0, im.width(), im.height(),
                                    WND_DEFAULT | WND_TRANSPARENT)
 
     def on_paint(self, ev):
@@ -20,5 +20,8 @@ class WndA(Window):
 
 
 def main(video_mem, qt_callback):
-    wnd = WndA()
+    return
+    #import time
+    #time.sleep(0.1)
+    wnd = WndC()
     wnd.exec_()

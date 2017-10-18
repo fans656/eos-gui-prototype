@@ -14,8 +14,8 @@ from message import *
 
 class Screen(QWidget):
 
-    fps_updated = Signal(int)
-    mouse_event = Signal(int, int, int)
+    #fps_updated = Signal(int)
+    #mouse_event = Signal(int, int, int)
 
     def __init__(self, width, height):
         super(Screen, self).__init__()
@@ -23,24 +23,24 @@ class Screen(QWidget):
         self.setMinimumSize(width, height)
 
         self.video_mem = QImage(width, height, QImage.Format_ARGB32)
-        self.fps = 0
+        #self.fps = 0
 
         self.video_sync_timer = QTimer()
         self.video_sync_timer.timeout.connect(self.refresh)
         self.video_sync_timer.start(1000 / FPS)
 
-        self.fps_stat_timer = QTimer()
-        self.fps_stat_timer.timeout.connect(self.fps_stat)
-        self.fps_stat_timer.start(1000)
+        #self.fps_stat_timer = QTimer()
+        #self.fps_stat_timer.timeout.connect(self.fps_stat)
+        #self.fps_stat_timer.start(1000)
 
     def refresh(self):
-        self.fps += 1
+        #self.fps += 1
         self.update()
 
-    def fps_stat(self):
-        fps = self.fps
-        self.fps = 0
-        self.fps_updated.emit(fps)
+    #def fps_stat(self):
+    #    fps = self.fps
+    #    self.fps = 0
+    #    self.fps_updated.emit(fps)
 
     def paintEvent(self, ev):
         painter = QPainter(self)
@@ -52,7 +52,7 @@ class Screen(QWidget):
             'x': ev.x(), 'y': ev.y(),
             'buttons': int(ev.buttons())
         })
-        self.mouse_event.emit(ev.x(), ev.y(), ev.buttons())
+        #self.mouse_event.emit(ev.x(), ev.y(), ev.buttons())
 
     def mousePressEvent(self, ev):
         put_message(QUEUE_ID_GUI, {
@@ -60,7 +60,7 @@ class Screen(QWidget):
             'x': ev.x(), 'y': ev.y(),
             'buttons': int(ev.buttons())
         })
-        self.mouse_event.emit(ev.x(), ev.y(), ev.buttons())
+        #self.mouse_event.emit(ev.x(), ev.y(), ev.buttons())
 
     def mouseReleaseEvent(self, ev):
         put_message(QUEUE_ID_GUI, {
@@ -68,52 +68,7 @@ class Screen(QWidget):
             'x': ev.x(), 'y': ev.y(),
             'buttons': int(ev.buttons())
         })
-        self.mouse_event.emit(ev.x(), ev.y(), ev.buttons())
-
-
-class Console(QWidget):
-
-    def __init__(self):
-        super(Console, self).__init__()
-        self.log = []
-
-        self.fps_label = QLabel()
-        self.msg_label = QLabel()
-        self.server_msg_recv_view = QTextEdit()
-        self.server_msg_send_view = QTextEdit()
-        self.server_msg_other_view = QTextEdit()
-
-        lt = QVBoxLayout()
-        lt.addWidget(self.fps_label)
-        lt.addWidget(self.msg_label)
-        lt.addWidget(self.server_msg_recv_view)
-        lt.addWidget(self.server_msg_send_view)
-        lt.addWidget(self.server_msg_other_view)
-        self.setLayout(lt)
-
-        self.setMinimumWidth(CONSOLE_WIDTH)
-
-        self.gui_msg_cnt = 0
-        self.second_timer = QTimer()
-        self.second_timer.timeout.connect(self.on_second)
-        self.second_timer.start(1000)
-
-    def update_fps(self, fps):
-        self.fps_label.setText('FPS: {}'.format(fps))
-
-    def on_gui_message(self, type_, msg):
-        self.gui_msg_cnt += 1
-        if type_ == 'RECV':
-            self.server_msg_recv_view.append(str(msg))
-        elif type_ == 'SEND':
-            self.server_msg_send_view.append(str(msg))
-        else:
-            self.server_msg_other_view.append(str(msg))
-
-    def on_second(self):
-        cnt = self.gui_msg_cnt
-        self.gui_msg_cnt = 0
-        self.msg_label.setText('Message per sec: {}'.format(cnt))
+        #self.mouse_event.emit(ev.x(), ev.y(), ev.buttons())
 
 
 class LogView(QTextEdit):
@@ -144,19 +99,88 @@ class LogView(QTextEdit):
         self.append(text)
 
 
+class WindowContent(QWidget):
+
+    def __init__(self):
+        super(WindowContent, self).__init__()
+        self.wnd = None
+        self.bk_colors = [
+            QColor(255,255,255),
+            QColor(0,0,0),
+        ]
+        self.bk_color_i = 0
+
+    def set_window(self, wnd):
+        self.wnd = wnd
+        self.update()
+
+    def switch_back_color(self):
+        self.bk_color_i = (self.bk_color_i + 1) % len(self.bk_colors)
+        self.update()
+
+    def paintEvent(self, ev):
+        if self.wnd:
+            painter = QPainter(self)
+            painter.fillRect(self.rect(), self.bk_colors[self.bk_color_i])
+            im = self.wnd.surface.im
+            if im.width() > self.width():
+                im = im.scaledToWidth(self.width())
+            painter.drawImage(0, 0, im)
+
+
+class WindowView(QWidget):
+
+    def __init__(self):
+        super(WindowView, self).__init__()
+        self.window_list = QListWidget()
+        self.refresh_button = QPushButton('&Refresh')
+        self.switch_back_color_button = QPushButton('&Color')
+        self.window_content = WindowContent()
+
+        self.window_list.setMaximumWidth(200)
+        self.window_list.itemClicked.connect(self.window_selected)
+        self.refresh_button.clicked.connect(self.window_content.update)
+        self.switch_back_color_button.clicked.connect(
+            self.window_content.switch_back_color)
+
+        self.window_content.setMaximumWidth(SCREEN_WIDTH - 200)
+
+        lt = QVBoxLayout()
+        lt.addWidget(self.window_list)
+        lt.addWidget(self.refresh_button)
+        lt.addWidget(self.switch_back_color_button)
+        ltt = lt
+
+        lt = QHBoxLayout()
+        lt.addLayout(ltt)
+        lt.addWidget(self.window_content)
+        self.setLayout(lt)
+
+    def on_gui_message(self, msg):
+        window_list = self.window_list
+        window_list.clear()
+        for wnd in reversed(msg['wnds']):
+            item = QListWidgetItem(str(wnd))
+            item.wnd = wnd
+            window_list.addItem(item)
+
+    def window_selected(self, item):
+        wnd = item.wnd
+        self.window_content.set_window(wnd)
+
+
 class Computer(QDialog):
 
     def __init__(self, parent=None):
         super(Computer, self).__init__(parent)
         self.screen = Screen(SCREEN_WIDTH, SCREEN_HEIGHT)
-        self.console = Console()
-        self.logview = LogView()
-
-        self.screen.fps_updated.connect(self.console.update_fps)
+        self.log_view = LogView()
+        self.window_view = WindowView()
 
         tab = QTabWidget()
         tab.addTab(self.screen, 'Screen')
-        tab.addTab(self.logview, 'Log')
+        tab.addTab(self.log_view, 'Log')
+        tab.addTab(self.window_view, 'Window')
 
         lt = QHBoxLayout()
         lt.addWidget(tab)
@@ -168,10 +192,16 @@ class Computer(QDialog):
                 proc_mod = imp.load_source(os.path.splitext(fname)[0], fname)
                 proc = threading.Thread(
                     target=proc_mod.main,
-                    args=(self.screen.video_mem, self.logview.on_gui_message))
+                    args=(self.screen.video_mem, self.on_gui_message))
                 self.procs.append(proc)
                 proc.daemon = True
                 proc.start()
+
+    def on_gui_message(self, tag, msg):
+        if tag.startswith('tab'):
+            self.window_view.on_gui_message(msg)
+        else:
+            self.log_view.on_gui_message(tag, msg)
 
 
 if __name__ == '__main__':

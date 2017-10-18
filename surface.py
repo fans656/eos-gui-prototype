@@ -11,6 +11,9 @@ class Surface(object):
     def __init__(self, width, height):
         self.im = QImage(width, height, QImage.Format_ARGB32)
 
+    def clear(self):
+        self.im.fill(0)
+
     def fill_rect(self, left, top, width, height, color):
         painter = QPainter(self.im)
         painter.fillRect(left, top, width, height, color2qcolor(color))

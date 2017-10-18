@@ -53,7 +53,10 @@ class GUI(object):
         wnd = ServerWindow(wnd, gui=self)
         self.add_window(wnd)
         wnd.on_create()
-        if not self.activate_window(wnd):
+        painted = False
+        if not (wnd.attr() & WND_INACTIVE):
+            painted = self.activate_window(wnd)
+        if not painted:
             wnd.on_paint()
 
     def on_painted(self, wnd):
@@ -85,6 +88,7 @@ class GUI(object):
             self.wnds = [wnd] + wnds
         else:
             wnds.append(wnd)
+        self.debug_update_windows()
 
     def hit_test_activate(self, x, y):
         for wnd in reversed(self.wnds):
@@ -112,14 +116,19 @@ class GUI(object):
         update_rcs = map(QRect, invalid_rcs)
         self.debug('invalidate', {'rects': update_rcs})
         wnds_to_draw = []
-        while invalid_rcs:
-            invalid_rc = invalid_rcs.pop()
-            for wnd in reversed(self.wnds):
+        for wnd in reversed(self.wnds):
+            new_invalid_rcs = []
+            for invalid_rc in invalid_rcs:
                 draw_rc = invalid_rc.intersected(wnd.frame_rect())
-                if not draw_rc.isEmpty():
+                if draw_rc.isEmpty():
+                    new_invalid_rcs.append(invalid_rc)
+                else:
                     wnds_to_draw.append((wnd, draw_rc))
-                    invalid_rcs.extend(rect_sub(invalid_rc, draw_rc))
-                    break
+                    if wnd.attr() & WND_TRANSPARENT:
+                        new_invalid_rcs.append(invalid_rc)
+                    else:
+                        new_invalid_rcs.extend(rect_sub(invalid_rc, draw_rc))
+            invalid_rcs = new_invalid_rcs
         painter = QPainter(self.screen)
         for wnd, rc in reversed(wnds_to_draw):
             self.blit_window(painter, wnd, rc)
@@ -152,8 +161,9 @@ class GUI(object):
 
     def put_window_at_top(self, wnd):
         wnds = self.wnds
-        i = wnds.index(wnd)
-        wnds[-1], wnds[i] = wnds[i], wnds[-1]
+        wnds.remove(wnd)
+        wnds.append(wnd)
+        self.debug_update_windows()
 
     def do_drag(self, mouse_x, mouse_y):
         wnd = self.dragging_wnd
@@ -185,6 +195,9 @@ class GUI(object):
         level = msg.get('__debug_level')
         if level is None or level >= DEBUG_LEVEL:
             self.qcommunicate.signal.emit(tag, msg)
+
+    def debug_update_windows(self):
+        self.debug('tab window add', {'wnds': self.wnds})
 
 
 def main(video_mem, qt_callback):

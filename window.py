@@ -112,6 +112,8 @@ class Window(WindowBase):
         self.height_ = height
         self.attr_ = attr
 
+        self.active_ = False
+
     def exec_(self):
         self.put_message(
             'CREATE_WINDOW',
@@ -127,8 +129,7 @@ class Window(WindowBase):
             elif type_ == 'on_deactivate':
                 self.on_deactivate()
             elif type_ == 'on_paint':
-                if not (self.attr() & WND_USER_DRAWN):
-                    self.on_system_paint(msg)
+                self.on_system_paint(msg)
                 self.on_paint(msg)
                 self.put_message('PAINTED')
             elif type_ == 'on_move':
@@ -150,7 +151,12 @@ class Window(WindowBase):
         width = self.frame_width()
         height = self.frame_height()
         color = SteelBlue if self.active() else LightSteelBlue
-        client_color = White
+        if self.attr() & WND_TRANSPARENT:
+            surface.clear()
+        else:
+            surface.fill_rect(
+                self.margin_left(), self.margin_top(),
+                self.width(), self.height(), White)
         if self.attr() & WND_FRAME:
             surface.fill_rect(0, 0, width, border, color)  # top
             surface.fill_rect(0, height - border, width, border, color)  # bottom
@@ -164,10 +170,6 @@ class Window(WindowBase):
             surface.fill_rect(
                 border, border,
                 width - 2 * border, self.caption_height(), color)
-        if not (self.attr() & WND_TRANSPARENT):
-            surface.fill_rect(
-                self.margin_left(), self.margin_top(),
-                self.width(), self.height(), White)
 
     def on_system_move(self, ev):
         self.x_ = ev['x']
