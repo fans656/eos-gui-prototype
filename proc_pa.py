@@ -12,7 +12,7 @@ class WndA(Window):
     def __init__(self):
         self.im = im = QImage('png.png')
         super(WndA, self).__init__(300, 100, im.width(), im.height(),
-                                   WND_DEFAULT | WND_TRANSPARENT)
+                                   WND_TRANSPARENT)
 
     def on_paint(self, ev):
         painter = Painter(self)

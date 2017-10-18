@@ -94,6 +94,9 @@ class WindowBase(object):
     def attr(self):
         return self.attr_
 
+    def transparent(self):
+        return self.attr() & WND_TRANSPARENT
+
     def on_activate(self):
         self.active_ = True
 
@@ -226,6 +229,24 @@ class ServerWindow(WindowBase):
         self.x_ = x
         self.y_ = y
         self.put_message('on_move', x=x, y=y)
+
+    def hit_test_activate(self, x, y):
+        if self.transparent():
+            return not self.transparent_pixel_at(x, y)
+        else:
+            return True
+
+    def hit_test_drag(self, x, y):
+        if self.caption_rect().contains(x, y):
+            return True
+        elif self.transparent():
+            return not self.transparent_pixel_at(x, y)
+        else:
+            return False
+
+    def transparent_pixel_at(self, x, y):
+        pixel = self.surface.im.pixel(x - self.x(), y - self.y())
+        return not (pixel & 0xff000000)
 
     def start_drag(self, x, y):
         self.dragging = True

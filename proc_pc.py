@@ -12,7 +12,7 @@ class WndC(Window):
     def __init__(self):
         self.im = im = QImage('walle.png')
         super(WndC, self).__init__(800, 0, im.width(), im.height(),
-                                   WND_DEFAULT | WND_TRANSPARENT)
+                                   WND_TRANSPARENT)
 
     def on_paint(self, ev):
         painter = Painter(self)
@@ -20,7 +20,6 @@ class WndC(Window):
 
 
 def main(video_mem, qt_callback):
-    return
     #import time
     #time.sleep(0.1)
     wnd = WndC()

@@ -92,12 +92,12 @@ class GUI(object):
 
     def hit_test_activate(self, x, y):
         for wnd in reversed(self.wnds):
-            if wnd.frame_rect().contains(x, y):
+            if wnd.frame_rect().contains(x, y) and wnd.hit_test_activate(x, y):
                 return self.activate_window(wnd)
 
     def hit_test_drag(self, x, y):
-        for wnd in reversed(self.wnds):
-            if wnd.caption_rect().contains(x, y):
+        for wnd in reversed(self.wnds[1:]):
+            if wnd.frame_rect().contains(x, y) and wnd.hit_test_drag(x, y):
                 return wnd
 
     def paint_window(self, wnd):
