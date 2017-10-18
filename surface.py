@@ -1,27 +1,26 @@
 from PySide.QtCore import *
 from PySide.QtGui import *
 
-
-def color2qcolor(c):
-    return QColor(((c >> 16) & 0xff), ((c >> 8) & 0xff), (c & 0xff), c >> 24)
+from color import *
 
 
 class Surface(object):
 
     def __init__(self, width, height):
         self.im = QImage(width, height, QImage.Format_ARGB32)
+        self.painter = QPainter(self.im)
 
     def clear(self):
         self.im.fill(0)
 
     def fill_rect(self, left, top, width, height, color):
-        painter = QPainter(self.im)
+        painter = self.painter
         painter.fillRect(left, top, width, height, color2qcolor(color))
 
     def draw_bitmap(self, bitmap, x, y):
-        painter = QPainter(self.im)
+        painter = self.painter
         painter.drawImage(x, y, bitmap)
 
     def blit(self, im, src_rc, dst_rc):
-        painter = QPainter(self.im)
+        painter = self.painter
         painter.drawImage(dst_rc, im, src_rc)

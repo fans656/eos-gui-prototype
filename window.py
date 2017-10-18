@@ -18,11 +18,11 @@ WND_KEEP_BOTTOM = 1 << 3
 #WND_KEEP_TOP = 1 << 4
 WND_INACTIVE = 1 << 5
 
-WND_DEFAULT = WND_FRAME | WND_CAPTION
+WND_DEFAULT = WND_FRAME | WND_CAPTION | WND_TRANSPARENT
 WND_ONLY_CLIENT = 0
 WND_USER_DRAWN = WND_TRANSPARENT
 
-DEFAULT_BORDER_WIDTH = 5
+DEFAULT_BORDER_WIDTH = 10
 DEFAULT_CAPTION_HEIGHT = 20
 
 
@@ -153,7 +153,8 @@ class Window(WindowBase):
         border = self.border_width()
         width = self.frame_width()
         height = self.frame_height()
-        color = SteelBlue if self.active() else LightSteelBlue
+        caption_color = SteelBlue if self.active() else LightSteelBlue
+        border_color = 0xaaffffff & caption_color
         if self.attr() & WND_TRANSPARENT:
             surface.clear()
         else:
@@ -161,18 +162,26 @@ class Window(WindowBase):
                 self.margin_left(), self.margin_top(),
                 self.width(), self.height(), White)
         if self.attr() & WND_FRAME:
-            surface.fill_rect(0, 0, width, border, color)  # top
-            surface.fill_rect(0, height - border, width, border, color)  # bottom
-            surface.fill_rect(
-                0, border,
-                border, height - 2 * border, color)  # left
-            surface.fill_rect(
-                width - border, border,
-                border, height - 2 * border, color)  # right
+            rc = QRect(0, 0, self.frame_width() - 1, self.frame_height() - 1)
+            painter = self.surface.painter
+            pen = painter.pen()
+            max_alpha = 70 if self.active() else 20
+            dalpha = max_alpha / DEFAULT_BORDER_WIDTH
+            border_color = QColor(0,0,0,1)
+            for i in xrange(DEFAULT_BORDER_WIDTH - 1):
+                pen.setColor(border_color)
+                #pen.setColor(QColor(0,0,0))
+                painter.setPen(pen)
+                painter.drawRect(rc)
+                border_color.setAlpha(i * dalpha)
+                rc.adjust(1,1,-1,-1)
+            pen.setColor(color2qcolor(caption_color))
+            painter.setPen(pen)
+            painter.drawRect(rc)
         if self.attr() & WND_CAPTION:
-            surface.fill_rect(
-                border, border,
-                width - 2 * border, self.caption_height(), color)
+            surface.fill_rect(border, border,
+                              width - 2 * border, self.caption_height(),
+                              caption_color)
 
     def on_system_move(self, ev):
         self.x_ = ev['x']
