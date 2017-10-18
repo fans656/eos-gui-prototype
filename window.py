@@ -44,6 +44,9 @@ class WindowBase(object):
         return QRect(self.margin_left(), self.margin_top(),
                      self.width(), self.height())
 
+    def abs_client_rect(self):
+        return self.client_rect().translated(self.x(), self.y())
+
     def frame_rect(self):
         return QRect(self.x(), self.y(), self.frame_width(), self.frame_height())
 
@@ -103,6 +106,11 @@ class WindowBase(object):
     def on_deactivate(self):
         self.active_ = False
 
+    def screen_to_client(self, x, y):
+        return (
+            x - self.x() - self.margin_left(),
+            y - self.y() - self.margin_top())
+
     def __repr__(self):
         return self.__class__.__name__
 
@@ -138,6 +146,11 @@ class Window(WindowBase):
             elif type_ == 'on_move':
                 self.on_system_move(msg)
                 self.on_move(msg)
+            elif type_ == 'on_mouse_press':
+                self.on_mouse_press(msg)
+
+    def update(self):
+        self.put_message('UPDATE')
 
     def on_create(self, ev):
         pass
@@ -146,6 +159,12 @@ class Window(WindowBase):
         pass
 
     def on_move(self, ev):
+        pass
+
+    def on_mouse_press(self, ev):
+        pass
+
+    def on_mouse_release(self, ev):
         pass
 
     def on_system_paint(self, ev):
@@ -238,6 +257,13 @@ class ServerWindow(WindowBase):
         self.x_ = x
         self.y_ = y
         self.put_message('on_move', x=x, y=y)
+
+    def on_mouse_press(self, x, y, buttons):
+        x, y = self.screen_to_client(x, y)
+        self.put_message('on_mouse_press', x=x, y=y, buttons=buttons)
+
+    def hit_test(self, x, y):
+        return self.abs_client_rect().contains(x, y)
 
     def hit_test_activate(self, x, y):
         if self.transparent():

@@ -187,22 +187,26 @@ class Computer(QDialog):
         self.setLayout(lt)
 
         self.procs = []
-        for fname in os.listdir('.'):
-            if fname.startswith('proc_') and fname.endswith('.py'):
-                proc_mod = imp.load_source(os.path.splitext(fname)[0], fname)
-                proc = threading.Thread(
-                    target=proc_mod.main,
-                    args=(self.screen.video_mem, self.on_gui_message))
-                self.procs.append(proc)
-                proc.daemon = True
-                proc.start()
+        self.start_proc('gui')
+        self.start_proc('desktop')
 
     def on_gui_message(self, tag, msg):
         if tag.startswith('tab'):
             self.window_view.on_gui_message(msg)
+        elif tag.startswith('open_proc'):
+            self.start_proc(msg['name'])
         else:
             self.log_view.on_gui_message(tag, msg)
 
+    def start_proc(self, name):
+        fname = 'proc_{}.py'.format(name)
+        proc_mod = imp.load_source(os.path.splitext(fname)[0], fname)
+        proc = threading.Thread(
+            target=proc_mod.main,
+            args=(self.screen.video_mem, self.on_gui_message))
+        self.procs.append(proc)
+        proc.daemon = True
+        proc.start()
 
 if __name__ == '__main__':
     app = QApplication([])

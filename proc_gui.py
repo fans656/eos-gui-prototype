@@ -41,6 +41,8 @@ class GUI(object):
                 self.on_painted(msg['sender'])
             elif msg_type == 'UPDATE':
                 self.paint_window(msg['sender'])
+            elif msg_type == 'OPEN_PROC':
+                self.open_proc(msg['name'])
             else:
                 print 'Unknown', msg
 
@@ -75,6 +77,11 @@ class GUI(object):
                 if wnd:
                     wnd.start_drag(x, y)
                     self.dragging_wnd = wnd
+                    return
+        for wnd in reversed(self.wnds):
+            if wnd.hit_test(x, y):
+                wnd.on_mouse_press(x, y, buttons)
+                break
 
     def on_mouse_release(self, ev):
         x, y, buttons = ev['x'], ev['y'], ev['buttons']
@@ -102,14 +109,7 @@ class GUI(object):
 
     def paint_window(self, wnd):
         put_message(wnd, {
-            'type': 'PaintEvent',
-        }, True)
-
-    def move_window(self, wnd, x, y):
-        put_message(wnd, {
-            'type': 'MoveEvent',
-            'x': x,
-            'y': y,
+            'type': 'on_paint',
         }, True)
 
     def invalidate(self, invalid_rcs):
@@ -177,6 +177,9 @@ class GUI(object):
         wnd.on_move(wnd_x, wnd_y)
         new_rc = wnd.frame_rect()
         self.invalidate(rect_or(old_rc, new_rc))
+
+    def open_proc(self, name):
+        self.debug('open_proc', {'name': name})
 
     @property
     def active_window(self):

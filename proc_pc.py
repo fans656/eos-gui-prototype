@@ -10,7 +10,7 @@ from message import get_message, put_message
 class WndC(Window):
 
     def __init__(self):
-        self.im = im = QImage('walle.png')
+        self.im = im = QImage('img/walle.png')
         super(WndC, self).__init__(800, 0, im.width(), im.height(),
                                    WND_TRANSPARENT)
 

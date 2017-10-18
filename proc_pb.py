@@ -10,7 +10,7 @@ from message import get_message, put_message
 class WndB(Window):
 
     def __init__(self):
-        self.im = im = QImage('girl-blue.jpg')
+        self.im = im = QImage('img/girl-blue.jpg')
         super(WndB, self).__init__(600, 200, im.width(), im.height(),
                                    WND_DEFAULT | WND_TRANSPARENT)
 

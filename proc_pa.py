@@ -10,7 +10,7 @@ from message import get_message, put_message
 class WndA(Window):
 
     def __init__(self):
-        self.im = im = QImage('girl.jpg')
+        self.im = im = QImage('img/girl.jpg')
         super(WndA, self).__init__(300, 100, 400, 300)
 
     def on_paint(self, ev):
