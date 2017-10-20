@@ -262,6 +262,7 @@ class Window(WindowBase):
         qpainter = self.surface.painter
         pen = qpainter.pen()
         if self.attr() & WND_CAPTION:
+            caption_color &= 0xddffffff
             caption_rc = QRect(border, border,
                                width - 2 * border, self.caption_height())
             qpainter.fillRect(rc, color2qcolor(caption_color))
