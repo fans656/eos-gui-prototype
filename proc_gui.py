@@ -24,6 +24,11 @@ class GUI(object):
 
         self.windows_change_listener = []
 
+        self.mouse_img = im = QImage('img/mouse.png')
+        self.under_mouse = QImage(im.width(), im.height(), QImage.Format_ARGB32)
+        self.mouse_x = 0
+        self.mouse_y = 0
+
     def exec_(self):
         while True:
             msg = get_message(QUEUE_ID_GUI)
@@ -72,13 +77,14 @@ class GUI(object):
 
     def on_mouse_move(self, ev):
         x, y, buttons = ev['x'], ev['y'], ev['buttons']
+        self.invalidate_mouse()
+        self.mouse_x = x
+        self.mouse_y = y
+        self.invalidate_mouse(True)
+
         if self.dragging_wnd:
             self.do_drag(x, y)
             return
-        #for wnd in reversed(self.wnds):
-        #    if wnd.hit_test_caption(x, y):
-        #        wnd.on_mouse_move_system(x, y, buttons)
-        #        break
 
     def on_mouse_press(self, ev):
         x, y, buttons = ev['x'], ev['y'], ev['buttons']
@@ -156,7 +162,7 @@ class GUI(object):
             'type': 'on_paint',
         }, True)
 
-    def invalidate(self, invalid_rcs):
+    def invalidate(self, invalid_rcs, draw_mouse=True):
         update_rcs = map(QRect, invalid_rcs)
         self.debug('invalidate', {'rects': update_rcs})
         wnds_to_draw = []
@@ -176,8 +182,17 @@ class GUI(object):
         painter = QPainter(self.screen)
         for wnd, rc in reversed(wnds_to_draw):
             self.blit_window(painter, wnd, rc)
+
+        if draw_mouse:
+            painter.drawImage(self.mouse_x, self.mouse_y, self.mouse_img)
+
         for rc in update_rcs:
             self.update_screen(rc)
+
+    def invalidate_mouse(self, draw=False):
+        self.invalidate([
+            QRect(self.mouse_x, self.mouse_y,
+                  self.mouse_img.width(), self.mouse_img.height())], draw)
 
     def blit_window(self, painter, wnd, rc):
         self.debug('blit_window', {

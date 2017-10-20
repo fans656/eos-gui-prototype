@@ -21,6 +21,7 @@ class Screen(QWidget):
         super(Screen, self).__init__()
         self.setMouseTracking(True)
         self.setMinimumSize(width, height)
+        self.setCursor(Qt.BlankCursor)
 
         self.video_mem = QImage(width, height, QImage.Format_ARGB32)
         #self.fps = 0

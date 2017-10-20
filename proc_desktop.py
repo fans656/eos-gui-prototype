@@ -52,31 +52,32 @@ class Desktop(Window):
                 rc.adjust(-dx, -dx, dx, dx)
                 qpainter.fillRect(rc, color2qcolor(SteelBlue))
             painter.draw_bitmap(icon, x, y)
-        rc = self.rect()
-        rc.setTop(rc.bottom() - TASK_BAR_HEIGHT)
-        task_bar_rc = QRect(rc)
-        qpainter.fillRect(rc, color2qcolor(0xbb000000))
 
-        time_text = datetime.datetime.now().strftime('%H:%M')
-        fm = qpainter.fontMetrics()
-        time_width = fm.width(time_text)
-        rc.setLeft(rc.right() - time_width - 2 * TIME_MARGIN)
-        pen.setColor(color2qcolor(0xffeeeeee))
-        qpainter.setPen(pen)
-        qpainter.drawText(rc, Qt.AlignCenter, time_text)
+        #rc = self.rect()
+        #rc.setTop(rc.bottom() - TASK_BAR_HEIGHT)
+        #task_bar_rc = QRect(rc)
+        #qpainter.fillRect(rc, color2qcolor(0xbb000000))
 
-        rc = QRect(task_bar_rc)
-        rc.setRight(200)
-        margin = 1
-        rc.translate(margin, 0)
-        for wnd in self.wnds[1:]:
-            color = 0x22ffffff
-            if wnd.active():
-                color = 0x44ffffff
-            qpainter.fillRect(rc, color2qcolor(color))
-            text_rc = rc.adjusted(20, 0, -20, 0)
-            qpainter.drawText(text_rc, Qt.AlignLeft | Qt.AlignVCenter, wnd.title())
-            rc.translate(rc.width() + margin, 0)
+        #time_text = datetime.datetime.now().strftime('%H:%M')
+        #fm = qpainter.fontMetrics()
+        #time_width = fm.width(time_text)
+        #rc.setLeft(rc.right() - time_width - 2 * TIME_MARGIN)
+        #pen.setColor(color2qcolor(0xffeeeeee))
+        #qpainter.setPen(pen)
+        #qpainter.drawText(rc, Qt.AlignCenter, time_text)
+
+        #rc = QRect(task_bar_rc)
+        #rc.setRight(200)
+        #margin = 1
+        #rc.translate(margin, 0)
+        #for wnd in self.wnds[1:]:
+        #    color = 0x22ffffff
+        #    if wnd.active():
+        #        color = 0x44ffffff
+        #    qpainter.fillRect(rc, color2qcolor(color))
+        #    text_rc = rc.adjusted(20, 0, -20, 0)
+        #    qpainter.drawText(text_rc, Qt.AlignLeft | Qt.AlignVCenter, wnd.title())
+        #    rc.translate(rc.width() + margin, 0)
 
     def on_mouse_press(self, ev):
         x, y = ev['x'], ev['y']
@@ -98,6 +99,7 @@ class Desktop(Window):
             self.update()
 
     def on_windows_changed(self, ev):
+        return
         wnds = ev['wnds']
         new_wnds = []
         for w in self.wnds:
