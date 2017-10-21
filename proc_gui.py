@@ -1,11 +1,9 @@
 import functools
 
-from PySide.QtCore import *
-from PySide.QtGui import *
-
 from common import *
 from window import *
-from util import *
+from bitmap import Bitmap
+from rect import Rect
 from painter import Painter
 from message import get_message, put_message
 from qcommunicate import QCommunicate
@@ -17,15 +15,14 @@ class GUI(object):
         self.qcommunicate = QCommunicate()
         self.qcommunicate.signal.connect(qt_callback)
         self.video_mem = video_mem
-        self.screen = QImage(SCREEN_WIDTH, SCREEN_HEIGHT, QImage.Format_ARGB32)
+        self.screen = Bitmap(SCREEN_WIDTH, SCREEN_HEIGHT)
         self.wnds = []
 
         self.dragging_wnd = None
 
         self.windows_change_listener = []
 
-        self.mouse_img = im = QImage('img/mouse.png')
-        self.under_mouse = QImage(im.width(), im.height(), QImage.Format_ARGB32)
+        self.mouse_img = im = Bitmap('img/mouse.png')
         self.mouse_x = 0
         self.mouse_y = 0
 
@@ -65,26 +62,21 @@ class GUI(object):
     def on_create_window(self, wnd):
         wnd = ServerWindow(wnd, gui=self)
         self.add_window(wnd)
-        wnd.on_create()
+        wnd.create()
         painted = False
-        if not (wnd.attr() & WND_INACTIVE):
+        if not (wnd.attr() & WND_KEEP_INACTIVE):
             painted = self.activate_window(wnd)
         if not painted:
-            wnd.on_paint()
+            wnd.paint()
 
     def on_painted(self, wnd):
-        self.invalidate([wnd.frame_rect()])
+        self.invalidate([wnd.window_rect_in_screen_coord()])
 
     def on_mouse_move(self, ev):
         x, y, buttons = ev['x'], ev['y'], ev['buttons']
-        self.invalidate_mouse()
-        self.mouse_x = x
-        self.mouse_y = y
-        self.invalidate_mouse(True)
-
+        self.draw_mouse(x, y)
         if self.dragging_wnd:
             self.do_drag(x, y)
-            return
 
     def on_mouse_press(self, ev):
         x, y, buttons = ev['x'], ev['y'], ev['buttons']
@@ -122,7 +114,7 @@ class GUI(object):
         self.wnds.remove(swnd)
         if swnd.active():
             self.activate_window(self.wnds[-1])
-        self.invalidate([swnd.frame_rect()])
+        self.invalidate([swnd.window_rect_in_screen_coord()])
         self.put_message(wnd, 'on_destroy')
         self.on_windows_changed()
 
@@ -149,12 +141,12 @@ class GUI(object):
 
     def hit_test_activate(self, x, y):
         for wnd in reversed(self.wnds):
-            if wnd.frame_rect().contains(x, y) and wnd.hit_test_activate(x, y):
+            if wnd.window_rect_in_screen_coord().contains(x, y) and wnd.hit_test_activate(x, y):
                 return self.activate_window(wnd)
 
     def hit_test_drag(self, x, y):
         for wnd in reversed(self.wnds[1:]):
-            if wnd.frame_rect().contains(x, y) and wnd.hit_test_drag(x, y):
+            if wnd.window_rect_in_screen_coord().contains(x, y) and wnd.hit_test_drag(x, y):
                 return wnd
 
     def paint_window(self, wnd):
@@ -163,58 +155,65 @@ class GUI(object):
         }, True)
 
     def invalidate(self, invalid_rcs, draw_mouse=True):
-        update_rcs = map(QRect, invalid_rcs)
+        assert all(isinstance(rc, Rect) for rc in invalid_rcs)
+        update_rcs = map(Rect, invalid_rcs)
         self.debug('invalidate', {'rects': update_rcs})
         wnds_to_draw = []
         for wnd in reversed(self.wnds):
             new_invalid_rcs = []
             for invalid_rc in invalid_rcs:
-                draw_rc = invalid_rc.intersected(wnd.frame_rect())
-                if draw_rc.isEmpty():
+                draw_rc = invalid_rc.intersected(wnd.window_rect_in_screen_coord())
+                if draw_rc.is_empty():
                     new_invalid_rcs.append(invalid_rc)
                 else:
                     wnds_to_draw.append((wnd, draw_rc))
                     if wnd.attr() & WND_TRANSPARENT:
                         new_invalid_rcs.append(invalid_rc)
                     else:
-                        new_invalid_rcs.extend(rect_sub(invalid_rc, draw_rc))
+                        new_invalid_rcs.extend(invalid_rc - draw_rc)
             invalid_rcs = new_invalid_rcs
-        painter = QPainter(self.screen)
+        painter = Painter(self.screen)
         for wnd, rc in reversed(wnds_to_draw):
             self.blit_window(painter, wnd, rc)
 
         if draw_mouse:
-            painter.drawImage(self.mouse_x, self.mouse_y, self.mouse_img)
+            painter.draw_bitmap(self.mouse_x, self.mouse_y, self.mouse_img)
 
         for rc in update_rcs:
             self.update_screen(rc)
 
+    def draw_mouse(self, x, y):
+        self.invalidate_mouse()
+        self.mouse_x = x
+        self.mouse_y = y
+        self.invalidate_mouse(True)
+
     def invalidate_mouse(self, draw=False):
         self.invalidate([
-            QRect(self.mouse_x, self.mouse_y,
+            Rect(self.mouse_x, self.mouse_y,
                   self.mouse_img.width(), self.mouse_img.height())], draw)
 
     def blit_window(self, painter, wnd, rc):
         self.debug('blit_window', {
             'wnd': wnd, 'rc': rc,
             '__debug_level': DEBUG_DEBUG})
-        painter.drawImage(rc, wnd.surface.im,
-                          rc.translated(-wnd.frame_left(), -wnd.frame_top()))
+        painter.draw_bitmap(rc, wnd.bitmap,
+                           rc.translated(-wnd.x(), -wnd.y()))
 
     def update_screen(self, rc):
-        painter = QPainter(self.video_mem)
-        painter.drawImage(rc, self.screen, rc)
+        painter = Painter(Bitmap(self.video_mem))
+        painter.draw_bitmap(rc, self.screen, rc)
 
     def activate_window(self, wnd):
         pwnd = self.active_window
         if pwnd:
-            pwnd.on_deactivate()
-            pwnd.on_paint()
+            pwnd.deactivate()
+            pwnd.paint()
         res = False
-        if not (wnd.attr() & WND_INACTIVE):
-            wnd.on_activate()
+        if not (wnd.attr() & WND_KEEP_INACTIVE):
+            wnd.activate()
             self.put_window_at_top(wnd)
-            wnd.on_paint()
+            wnd.paint()
             res = True
         self.on_windows_changed()
         return res
@@ -227,16 +226,16 @@ class GUI(object):
 
     def do_drag(self, mouse_x, mouse_y):
         wnd = self.dragging_wnd
-        old_rc = wnd.frame_rect()
+        old_rc = wnd.window_rect_in_screen_coord()
         dx = mouse_x - wnd.dragging_initial_mouse_x
         dy = mouse_y - wnd.dragging_initial_mouse_y
         if dx == 0 and dy == 0:
             return
-        wnd_x = wnd.dragging_initial_frame_x + dx
-        wnd_y = wnd.dragging_initial_frame_y + dy
-        wnd.on_move(wnd_x, wnd_y)
-        new_rc = wnd.frame_rect()
-        self.invalidate(rect_or(old_rc, new_rc))
+        wnd_x = wnd.dragging_initial_window_x + dx
+        wnd_y = wnd.dragging_initial_window_y + dy
+        wnd.move(wnd_x, wnd_y)
+        new_rc = wnd.window_rect_in_screen_coord()
+        self.invalidate(old_rc | new_rc)
 
     def open_proc(self, name):
         self.debug('open_proc', {'name': name})

@@ -2,6 +2,16 @@ from PySide.QtCore import *
 from PySide.QtGui import *
 
 
+__all__ = [
+    'SteelBlue',
+    'LightSteelBlue',
+    'White',
+    'LightWhite',
+    'DarkWhite',
+    'color2qcolor',
+]
+
+
 SteelBlue = 0xff4682b4
 LightSteelBlue = 0xffb0c4de
 White = 0xffffffff

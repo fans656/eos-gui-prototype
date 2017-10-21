@@ -10,6 +10,7 @@ from PySide.QtGui import *
 
 from common import *
 from message import *
+from bitmap import Bitmap
 
 
 class Screen(QWidget):
